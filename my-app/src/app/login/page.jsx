@@ -16,7 +16,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // ดึงข้อมูลจากตาราง users โดยเช็ค username และ password
+      // ดึงข้อมูลจากตาราง users โดยเช็ค email และ password
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
