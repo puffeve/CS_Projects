@@ -37,7 +37,7 @@ export default function LoginPage() {
 
       // redirect ตาม role
       if (userData.role === 'admin') {
-        router.push('/admin');
+        router.push('/dashboard');
       } else {
         router.push('/dashboard');
       }
