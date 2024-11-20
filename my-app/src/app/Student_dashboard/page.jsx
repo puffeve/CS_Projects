@@ -65,7 +65,7 @@ const emotions = [
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleFileChange(emotion, e)}
-                  className="block w-full p-2 text-white bg-green-500 border-none rounded-lg cursor-pointer mt-3"
+                  className="block w-full p-1 text-white bg-purple-400 border-none rounded-lg cursor-pointer mt-3"
                 />
               </div>
             ))}
@@ -92,7 +92,7 @@ const emotions = [
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleFileChange(emotion, e)}
-                  className="block w-full p-2 text-white bg-green-500 border-none rounded-lg cursor-pointer mt-3"
+                  className="block w-full p-1 text-white bg-purple-400 border-none rounded-lg cursor-pointer mt-3"
                 />
               </div>
             ))}
@@ -100,7 +100,7 @@ const emotions = [
   
           <button
             type="submit"
-            className="mt-8 px-6 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors"
+            className="mt-8 px-6 py-3 bg-pink-500 text-white font-semibold rounded-lg hover:bg-pink-300 transition-colors"
           >
             Save
           </button>
