@@ -18,14 +18,14 @@ const AdminDashboard = () => {
         
         <div className="flex flex-col gap-4">
           <button
-            onClick={() => navigateTo('/admin/manage-accounts')}
+            onClick={() => navigateTo('/Adduser')}
             className="w-full bg-pink-400 text-white py-4 rounded-lg hover:bg-pink-500 transition"
           >
             จัดการข้อมูลบัญชี
           </button>
           
           <button
-            onClick={() => navigateTo('/admin/manage-courses')}
+            onClick={() => navigateTo('/Addcourses')}
             className="w-full bg-blue-400 text-white py-4 rounded-lg hover:bg-blue-500 transition"
           >
             จัดการข้อมูลรายวิชา
