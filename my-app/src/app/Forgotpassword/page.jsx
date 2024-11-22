@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
         }
   
         // Redirect to the reset password page with email
-        router.push(`/reset-password?email=${encodeURIComponent(email)}`);
+        router.push(`/Resetpassword?email=${encodeURIComponent(email)}`);
       } catch (error) {
         setError(error.message);
       } finally {

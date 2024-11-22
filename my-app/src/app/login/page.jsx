@@ -51,7 +51,7 @@ export default function LoginPage() {
   };
 
   const handleForgotPassword = () => {
-    router.push('/forgot-password');
+    router.push('/Forgotpassword');
   };
 
   return (
