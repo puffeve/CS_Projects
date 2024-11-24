@@ -6,7 +6,7 @@ export default function HomePage() {
       <div className="max-w-md w-full space-y-8 p-8">
         <div>
           <h1 className="text-4xl font-bold text-center text-gray-900">
-            Welcome to Our App
+            ClassMood Insight
           </h1>
           <div className="mt-8 space-y-4">
             <Link 

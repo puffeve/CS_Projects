@@ -19,21 +19,21 @@ const AdminDashboard = () => {
         <div className="flex flex-col gap-4">
           <button
             onClick={() => navigateTo('/Adduser')}
-            className="w-full bg-pink-400 text-white py-4 rounded-lg hover:bg-pink-500 transition"
+            className="w-full bg-pink-400 text-white py-4 rounded-lg hover:bg-pink-300 transition"
           >
             จัดการข้อมูลบัญชี
           </button>
           
           <button
             onClick={() => navigateTo('/Addcourses')}
-            className="w-full bg-blue-400 text-white py-4 rounded-lg hover:bg-blue-500 transition"
+            className="w-full bg-sky-400 text-white py-4 rounded-lg hover:bg-sky-300 transition"
           >
             จัดการข้อมูลรายวิชา
           </button>
           
           <button
             onClick={() => navigateTo('/admin/manage-face-data')}
-            className="w-full bg-purple-400 text-white py-4 rounded-lg hover:bg-purple-500 transition"
+            className="w-full bg-purple-400 text-white py-4 rounded-lg hover:bg-purple-300 transition"
           >
             จัดการข้อมูลใบหน้า
           </button>

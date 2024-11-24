@@ -8,6 +8,14 @@ export default function TeacherPage() {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [compareType, setCompareType] = useState('same'); // default is same subject
   const subjects = ['วิชาคณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ'];
+  const router = useRouter(); // Hook for navigation
+
+  const handleSignOut = async () => {
+    // Sign out the user from Supabase
+    await supabase.auth.signOut();
+    // Redirect to the login page
+    router.push('/login');
+  };
 
   return (
     <div className="flex h-screen">
@@ -30,8 +38,11 @@ export default function TeacherPage() {
         </div>
         {/* ปุ่มออกจากระบบ */}
         <div className="absolute bottom-4 left-4 w-full text-center">
-          <button className="w-auto px-4 py-2 bg-pink-400 rounded-md hover:bg-pink-200 mx-auto h-auto">
-            ออกจากระบบ
+          <button 
+            onClick={handleSignOut} // Call the sign-out function on click
+            className="w-auto px-4 py-2 bg-pink-400 rounded-md hover:bg-pink-200 mx-auto h-auto"
+          >
+            Sign Out
           </button>
         </div>
       </div>

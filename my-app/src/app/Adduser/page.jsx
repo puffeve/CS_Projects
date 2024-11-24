@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'; // Ensure this is properly configured
 
 const AdminPage = ({ currentUser }) => {
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
     email: '',
     password: '',
     phone: '',
@@ -14,6 +14,7 @@ const AdminPage = ({ currentUser }) => {
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const router = useRouter(); // Initialize useRouter
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -28,7 +29,7 @@ const AdminPage = ({ currentUser }) => {
     try {
       const { data, error } = await supabase.from('users').insert([
         {
-          username: formData.username,
+          name: formData.name,
           email: formData.email,
           password: formData.password, // In a real-world app, hash passwords before storing
           phone: formData.phone,
@@ -42,7 +43,7 @@ const AdminPage = ({ currentUser }) => {
 
       setSuccess('User added successfully!');
       setFormData({
-        username: '',
+        name: '',
         email: '',
         password: '',
         phone: '',
@@ -50,6 +51,16 @@ const AdminPage = ({ currentUser }) => {
       });
     } catch (error) {
       setError(error.message);
+    }
+  };
+
+  // New function for handling logout
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut(); // Sign out using Supabase
+    if (!error) {
+      router.push('/login'); // Redirect to the login page
+    } else {
+      setError('Logout failed. Please try again.');
     }
   };
 
@@ -67,7 +78,12 @@ const AdminPage = ({ currentUser }) => {
           </nav>
         </div>
         <div className="p-6">
-          <button className="w-full py-2 px-4 bg-pink-400 hover:bg-pink-200 rounded-lg">ออกจากระบบ</button>
+          <button 
+            onClick={handleLogout} // Bind the logout function
+            className="w-full py-2 px-4 bg-pink-400 hover:bg-pink-200 rounded-lg"
+          >
+            ออกจากระบบ
+          </button>
         </div>
       </div>
 
@@ -79,11 +95,11 @@ const AdminPage = ({ currentUser }) => {
           {success && <div className="mb-4 text-green-500">{success}</div>}
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label className="block text-gray-700">Username</label>
+              <label className="block text-gray-700">Name</label>
               <input
                 type="text"
-                name="username"
-                value={formData.username}
+                name="name"
+                value={formData.name}
                 onChange={handleInputChange}
                 className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
                 required

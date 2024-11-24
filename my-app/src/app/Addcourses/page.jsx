@@ -11,6 +11,8 @@ const AddCourse = () => {
     teacher: ''        // Adjusted to match the database field name
   });
   
+  const router = useRouter(); // Initialize useRouter for navigation
+  
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -43,6 +45,21 @@ const AddCourse = () => {
     }
   };
   
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error.message);
+      } else {
+        // Redirect to the login page after logout
+        router.push('/login');
+      }
+    } catch (err) {
+      console.error('Unexpected logout error:', err.message);
+    }
+  };
+  
   return (
     <div className="flex min-h-screen bg-gray-100">
       {/* Sidebar */}
@@ -56,7 +73,12 @@ const AddCourse = () => {
           </nav>
         </div>
         <div className="p-6">
-          <button className="w-full py-2 px-4 bg-pink-400 hover:bg-pink-200 rounded-lg">ออกจากระบบ</button>
+          <button
+            className="w-full py-2 px-4 bg-pink-400 hover:bg-pink-200 rounded-lg"
+            onClick={handleLogout}
+          >
+            ออกจากระบบ
+          </button>
         </div>
       </div>
 

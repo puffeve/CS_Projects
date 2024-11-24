@@ -24,6 +24,8 @@ const UploadEmotionImages = ({ userName }) => {
     Neutral: null,
   });
 
+  const router = useRouter(); // Initialize the router
+
   const handleFileChange = (emotion, event) => {
     const file = event.target.files[0];
     if (file) {
@@ -34,9 +36,15 @@ const UploadEmotionImages = ({ userName }) => {
     }
   };
 
-  const handleLogout = () => {
-    // Add logout functionality here
-    console.log('Logout clicked');
+  const handleLogout = async () => {
+    try {
+      // Sign out the user using Supabase's auth
+      await supabase.auth.signOut();
+      // Redirect to the login page
+      router.push('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   const handleSubmit = (event) => {
@@ -48,7 +56,7 @@ const UploadEmotionImages = ({ userName }) => {
   return (
     <div className="flex h-screen">
       {/* Left Sidebar */}
-      <div className="w-1/6 bg-sky-200 text-black flex flex-col justify-between p-4">
+      <div className="w-64 bg-sky-200 text-black flex flex-col justify-between p-4">
         <div>
           <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
           <h2 className="text-xl font-semibold mb-6">{userName}</h2>
@@ -68,27 +76,27 @@ const UploadEmotionImages = ({ userName }) => {
           <h2 className="text-3xl font-semibold mb-8 text-center">Upload Emotion Images</h2>
           <form onSubmit={handleSubmit}>
             {/* Top row with 4 emotion boxes */}
-            <div className="grid grid-cols-4 gap-8 mb-8">
+            <div className="grid grid-cols-4 gap-12 mb-8">
               {emotions.slice(0, 4).map((emotion) => (
                 <div
                   key={emotion}
-                  className="flex flex-col items-center justify-center border border-gray-300 rounded-lg p-4 w-64 h-64 bg-white shadow-md"
+                  className="flex flex-col items-center justify-between border border-gray-300 rounded-lg p-4 w-56 h-72 bg-white shadow-md"
                 >
                   <label className="text-lg font-bold mb-3">{emotion}</label>
-                  {images[emotion] ? (
-                    <img
-                      src={URL.createObjectURL(images[emotion])}
-                      alt={`${emotion} preview`}
-                      className="w-48 h-48 object-cover rounded-lg mb-3"
-                    />
-                  ) : (
-                    <div className="w-48 h-48 bg-gray-200 mb-3" />
-                  )}
+                  <div className="w-48 h-48 bg-gray-200 mb-3">
+                    {images[emotion] ? (
+                      <img
+                        src={URL.createObjectURL(images[emotion])}
+                        alt={`${emotion} preview`}
+                        className="w-full h-full object-cover rounded-lg" // Ensure image fits within the box
+                      />
+                    ) : null}
+                  </div>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleFileChange(emotion, e)}
-                    className="block w-full p-2 text-white bg-pink-200 border-none rounded-lg cursor-pointer mt-3"
+                    className="block w-full p-2 text-white bg-pink-200 border-none rounded-lg cursor-pointer mt-3" // Position stays fixed
                   />
                 </div>
               ))}
@@ -99,23 +107,23 @@ const UploadEmotionImages = ({ userName }) => {
               {emotions.slice(4).map((emotion) => (
                 <div
                   key={emotion}
-                  className="flex flex-col items-center justify-center border border-gray-300 rounded-lg p-4 w-64 h-64 bg-white shadow-md"
+                  className="flex flex-col items-center justify-between border border-gray-300 rounded-lg p-4 w-64 h-72 bg-white shadow-md"
                 >
                   <label className="text-lg font-bold mb-3">{emotion}</label>
-                  {images[emotion] ? (
-                    <img
-                      src={URL.createObjectURL(images[emotion])}
-                      alt={`${emotion} preview`}
-                      className="w-48 h-48 object-cover rounded-lg mb-3"
-                    />
-                  ) : (
-                    <div className="w-48 h-48 bg-gray-200 mb-3" />
-                  )}
+                  <div className="w-48 h-48 bg-gray-200 mb-3">
+                    {images[emotion] ? (
+                      <img
+                        src={URL.createObjectURL(images[emotion])}
+                        alt={`${emotion} preview`}
+                        className="w-full h-full object-cover rounded-lg" // Ensure image fits within the box
+                      />
+                    ) : null}
+                  </div>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleFileChange(emotion, e)}
-                    className="block w-full p-2 text-white bg-pink-200 border-none rounded-lg cursor-pointer mt-3"
+                    className="block w-full p-2 text-white bg-pink-200 border-none rounded-lg cursor-pointer mt-3" // Position stays fixed
                   />
                 </div>
               ))}
