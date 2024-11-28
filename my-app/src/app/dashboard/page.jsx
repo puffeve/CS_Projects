@@ -18,7 +18,7 @@ const AdminDashboard = () => {
         
         <div className="flex flex-col gap-4">
           <button
-            onClick={() => navigateTo('/Adduser')}
+            onClick={() => navigateTo('/searchacc')}
             className="w-full bg-pink-400 text-white py-4 rounded-lg hover:bg-pink-300 transition"
           >
             จัดการข้อมูลบัญชี
