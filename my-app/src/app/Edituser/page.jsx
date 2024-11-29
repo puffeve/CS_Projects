@@ -1,149 +1,198 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-// Sidebar Component
-function Sidebar({ userName, onLogout }) {
-    return (
-      <div className="flex flex-col h-screen w-64 bg-sky-200 text-black">
-        <div className="p-4 text-lg font-bold border-b border-gray-700">
-          ClassMood Insight
-        </div>
-        <div className="flex-grow p-4">
-          <div className="text-center font-semibold">{userName}</div>
-        </div>
-        <button
-          onClick={onLogout}
-          className="mb-4 mx-4 px-4 py-2 bg-pink-400 hover:bg-pink-200 rounded-md text-center"
-        >
-          Log out
-        </button>
-      </div>
-    );
-  }
-  
-  // Edit Account Page
-  export default function EditAccount() {
-    const [user, setUser] = useState(null);
-    const [formData, setFormData] = useState({
-      name: "",
-      email: "",
-      phone: "",
-      role: "", // เพิ่ม Role ในแบบฟอร์ม
-    });
-  
-    const fetchUserData = async () => {
-      const { data: userData, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id")
-        .single();
-  
-      if (userData) {
-        setUser(userData);
-        setFormData({
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone,
-          role: userData.role, // ดึง Role จากฐานข้อมูล
-        });
-      }
-  
-      if (error) console.error("Error fetching user data:", error);
-    };
-  
-    useEffect(() => {
-      fetchUserData();
-    }, []);
-  
-    const handleInputChange = (e) => {
-      const { name, value } = e.target;
-      setFormData({ ...formData, [name]: value });
-    };
-  
-    const handleSave = async () => {
+const EditUser = ({ userId }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'student' // ค่าเริ่มต้นเป็น 'student'
+  });
+
+  const router = useRouter(); // ใช้ useRouter สำหรับการนำทาง
+
+  // Fetch the user data when the component mounts
+  const fetchUserData = async () => {
+    try {
       const { data, error } = await supabase
-        .from("users")
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) throw error;
+
+      // Populate the form with the fetched data
+      setFormData({
+        name: data.name || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        role: data.role || 'student',
+      });
+    } catch (err) {
+      console.error('Error fetching user data:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (userId) {
+      fetchUserData();
+    }
+  }, [userId]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
         .update({
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
-          role: formData.role, // อัปเดต Role
+          role: formData.role
         })
-        .eq("id", user.id);
-  
+        .eq('id', userId);
+
       if (error) {
-        console.error("Error updating user data:", error);
-        alert("Error saving changes.");
+        console.error('เกิดข้อผิดพลาดในการอัปเดตข้อมูล:', error.message);
       } else {
-        alert("Changes saved successfully!");
+        console.log('อัปเดตข้อมูลสำเร็จ:', data);
+        router.push('/dashboard'); // Redirect to a dashboard or user list after updating
       }
-    };
-  
-    const handleLogout = async () => {
+    } catch (err) {
+      console.error('ข้อผิดพลาดที่ไม่คาดคิด:', err.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
       const { error } = await supabase.auth.signOut();
-      if (!error) {
-        window.location.href = "/login";
+      if (error) {
+        console.error('ข้อผิดพลาดในการออกจากระบบ:', error.message);
+      } else {
+        router.push('/login');
       }
-    };
-  
-    return (
-      <div className="flex">
-        <Sidebar userName={user?.name} onLogout={handleLogout} />
-        <div className="flex-grow p-8">
-          <h1 className="text-2xl font-bold mb-4">Edit Account</h1>
-          <div className="space-y-4 max-w-lg">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
+    } catch (err) {
+      console.error('ข้อผิดพลาดในการออกจากระบบที่ไม่คาดคิด:', err.message);
+    }
+  };
+
+  const handleBack = () => {
+    router.back(); // Navigate back to the previous page
+  };
+
+  return (
+    <div className="flex min-h-screen bg-gray-100">
+      {/* Sidebar */}
+      <div className="w-64 bg-sky-200 text-black flex flex-col justify-between">
+        <div className="p-6">
+          <h1 className="text-xl font-bold">ClassMood Insight</h1>
+          <nav className="mt-10">
+            <a href="./Adduser" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลบัญชี</a>
+            <a href="./Addcourses" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลรายวิชา</a>
+            <a href="#" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลใบหน้า</a>
+          </nav>
+        </div>
+        <div className="p-6">
+          <button
+            className="w-full py-2 px-4 bg-pink-400 hover:bg-pink-200 rounded-lg"
+            onClick={handleLogout}
+          >
+            Log Out 
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 p-10 flex justify-center items-center relative">
+        {/* ปุ่มย้อนกลับที่อยู่ข้างๆ แถบด้านซ้าย */}
+        <button
+          onClick={handleBack}
+          className="absolute top-6 left-10 py-2 px-4 bg-gray-400 hover:bg-gray-300 text-white rounded-lg"
+        >
+          ย้อนกลับ
+        </button>
+
+        {/* ฟอร์มสำหรับแก้ไขบัญชีผู้ใช้ */}
+        <div className="bg-sky-50 p-8 rounded-lg shadow-md w-full max-w-2xl">
+          <h2 className="text-2xl font-semibold mb-6">แก้ไขบัญชีผู้ใช้</h2>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label className="block text-gray-700">ชื่อ</label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border rounded-md"
+                className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
+                required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
+            <div className="mb-4">
+              <label className="block text-gray-700">อีเมล</label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border rounded-md"
+                className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
+                required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Phone</label>
+            <div className="mb-4">
+              <label className="block text-gray-700">รหัสผ่าน</label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-gray-700">เบอร์โทรศัพท์</label>
               <input
                 type="text"
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border rounded-md"
+                className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Role</label>
+            <div className="mb-4">
+              <label className="block text-gray-700">ประเภทผู้ใช้</label>
               <select
                 name="role"
                 value={formData.role}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border rounded-md"
+                className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
               >
                 <option value="teacher">Teacher</option>
                 <option value="student">Student</option>
               </select>
             </div>
             <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md"
+              type="submit"
+              className="w-full py-3 px-4 bg-pink-400 hover:bg-pink-200 text-white rounded-lg"
             >
-              Save Changes
+              อัปเดตบัญชีผู้ใช้
             </button>
-          </div>
+          </form>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+};
+
+export default EditUser;

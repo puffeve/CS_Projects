@@ -25,7 +25,7 @@ const AdminDashboard = () => {
           </button>
           
           <button
-            onClick={() => navigateTo('/Addcourses')}
+            onClick={() => navigateTo('/searchcourse')}
             className="w-full bg-sky-400 text-white py-4 rounded-lg hover:bg-sky-300 transition"
           >
             จัดการข้อมูลรายวิชา

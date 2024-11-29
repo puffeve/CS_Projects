@@ -8,48 +8,72 @@ export default function AccountManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const router = useRouter();
 
-  // ดึงข้อมูลจาก Supabase
   useEffect(() => {
     fetchAccounts();
   }, []);
 
   async function fetchAccounts() {
-    const { data, error } = await supabase.from("users").select("*");
-    if (error) {
-      console.error("Error fetching accounts:", error);
-    } else {
+    try {
+      const { data, error } = await supabase.from("users").select("*");
+      if (error) throw error;
       setAccounts(data);
+    } catch (error) {
+      console.error("Error fetching accounts:", error);
     }
   }
 
-  // ฟังก์ชันลบข้อมูล
   async function deleteAccount(id) {
     if (confirm("คุณต้องการลบบัญชีนี้หรือไม่?")) {
-      const { error } = await supabase.from("users").delete().eq("id", id);
-      if (error) {
+      try {
+        const { error } = await supabase.from("users").delete().eq("id", id);
+        if (error) throw error;
+        fetchAccounts();
+      } catch (error) {
         console.error("Error deleting account:", error);
-      } else {
-        fetchAccounts(); // อัปเดตรายการ
       }
     }
   }
 
-  // ฟังก์ชัน Log out
   async function handleLogout() {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      router.push('/login');
+    } catch (error) {
       console.error("Error logging out:", error);
-    } else {
-      router.push('/login'); // เปลี่ยนเส้นทางไปยังหน้าล็อกอิน
     }
   }
+
+  const filteredAccounts = accounts.filter((account) =>
+    account.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
       <div className="w-64 bg-sky-200 text-black flex flex-col justify-between">
         <div className="p-4">
-          <h1 className="text-2xl font-bold">ClassMood Insight</h1>
+          <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => router.push('/searchacc')}
+              className="bg-sky-300 text-black px-4 py-2 rounded-lg text-left"
+            >
+              จัดการบัญชี
+            </button>
+            <button
+              onClick={() => router.push('/searchcourse')}
+              className="bg-sky-300 text-black px-4 py-2 rounded-lg text-left"
+            >
+              จัดการรายวิชา
+            </button>
+            <button
+              onClick={() => router.push('/FaceDataManagement')}
+              className="bg-sky-300 text-black px-4 py-2 rounded-lg text-left"
+            >
+              จัดการข้อมูลใบหน้า
+            </button>
+          </div>
         </div>
         <button
           onClick={handleLogout}
@@ -61,10 +85,8 @@ export default function AccountManagement() {
 
       {/* Main Content */}
       <div className="flex-1 p-4">
-        <h1 className="text-2xl font-bold mb-4">จัดการบัญชี</h1>
-
-        {/* ช่องค้นหา */}
-        <div className="flex items-center gap-4 mb-4">
+        <h1 className="text-2xl font-bold mb-4 text-center">จัดการบัญชี</h1>
+        <div className="flex items-center justify-center gap-4 mb-4">
           <input
             type="text"
             placeholder="ค้นหาบัญชี"
@@ -79,9 +101,7 @@ export default function AccountManagement() {
             ค้นหา
           </button>
         </div>
-
-        {/* ปุ่มเพิ่มบัญชี */}
-        <div className="mb-4">
+        <div className="mb-4 text-center">
           <button
             onClick={() => router.push('/Adduser')}
             className="bg-green-500 text-white px-4 py-2 rounded-lg"
@@ -89,16 +109,11 @@ export default function AccountManagement() {
             เพิ่มบัญชี
           </button>
         </div>
-
-        {/* ตารางรายการบัญชี */}
         <div className="bg-white rounded-lg shadow-md p-4">
-          {accounts
-            .filter((account) =>
-              account.name.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-            .map((account) => (
+          {filteredAccounts.length > 0 ? (
+            filteredAccounts.map((account, index) => (
               <div
-                key={account.id}
+                key={account.id || index}
                 className="flex items-center justify-between border-b py-2"
               >
                 <div>
@@ -122,7 +137,10 @@ export default function AccountManagement() {
                   </button>
                 </div>
               </div>
-            ))}
+            ))
+          ) : (
+            <p className="text-gray-500">ไม่มีบัญชีที่ตรงกับการค้นหา</p>
+          )}
         </div>
       </div>
     </div>
