@@ -16,12 +16,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // ดึงข้อมูลผู้ใช้จากตาราง 'users' โดยตรงเมื่ออีเมลและรหัสผ่านตรงกัน
+      // Fetch the user from the 'users' table where email and password match
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('email', email)
-        .eq('password', password)  // หมายเหตุ: ในแอปพลิเคชันจริงควรใช้รหัสผ่านที่เข้ารหัส (hashed password)
+        .eq('password', password)  // Note: Use hashed password in a real application!
         .single();
 
       if (userError) {
@@ -32,19 +32,18 @@ export default function LoginPage() {
         throw new Error('User not found');
       }
 
-      // บันทึกข้อมูลผู้ใช้ใน localStorage หรือระบบการจัดการสถานะ
+      // Save the user data in localStorage or state management
       localStorage.setItem('user', JSON.stringify(userData));
 
-      // เปลี่ยนเส้นทางไปยังหน้าแดชบอร์ดตามบทบาทของผู้ใช้
+      // Redirect based on the role of the user
       if (userData.role === 'admin') {
-        router.push('/dashboard'); // เปลี่ยนเส้นทางไปยังแดชบอร์ดของผู้ดูแล
+        router.push('/dashboard'); // Redirect to the admin dashboard
       } else if (userData.role === 'teacher') {
-        router.push('/Teacher_dashboard'); // เปลี่ยนเส้นทางไปยังแดชบอร์ดของครู
+        router.push('/Teacher_dashboard'); // Redirect to the teacher dashboard
       } else if (userData.role === 'student') {
-        router.push('/Student_dashboard'); // เปลี่ยนเส้นทางไปยังแดชบอร์ดของนักเรียน
+        router.push('/Student_dashboard'); // Redirect to the student dashboard
       }
     } catch (error) {
-      // ถ้าผิดพลาด ให้แสดงข้อความผิดพลาด
       setError(error.message);
     } finally {
       setLoading(false);
@@ -52,7 +51,7 @@ export default function LoginPage() {
   };
 
   const handleForgotPassword = () => {
-    router.push('/Forgotpassword'); // ฟังก์ชันจัดการลืมรหัสผ่าน
+    router.push('/Forgotpassword');
   };
 
   return (
