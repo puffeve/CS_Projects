@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -13,7 +13,7 @@ const emotions = [
   'Neutral'
 ];
 
-const UploadEmotionImages = ({ userName }) => {
+const UploadEmotionImages = () => {
   const [images, setImages] = useState({
     Happy: null,
     Sad: null,
@@ -24,8 +24,24 @@ const UploadEmotionImages = ({ userName }) => {
     Neutral: null,
   });
 
-  const router = useRouter(); // Initialize the router
+  const [userName, setUserName] = useState(''); // ใช้ useState เพื่อเก็บชื่อผู้ใช้จาก localStorage
+  const router = useRouter();
 
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    
+    if (user) {
+      if (user.role === 'student') {
+        setUserName(user.name); // ตั้งค่า userName จาก roll_student
+      } else if (user.role === 'teacher') {
+        setUserName(user.name); // ตั้งค่า userName จาก roll_teacher (หรือแค่ตรวจสอบให้เหมาะสม)
+      } else {
+        router.push('/login'); // หากไม่มีข้อมูลผู้ใช้หรือ role ไม่ถูกต้อง ให้กลับไปหน้า login
+      }
+    } else {
+      router.push('/login'); // หากไม่มีข้อมูลผู้ใช้ใน localStorage ให้กลับไปหน้า login
+    }
+  }, []);
   const handleFileChange = (emotion, event) => {
     const file = event.target.files[0];
     if (file) {
@@ -38,10 +54,9 @@ const UploadEmotionImages = ({ userName }) => {
 
   const handleLogout = async () => {
     try {
-      // Sign out the user using Supabase's auth
-      await supabase.auth.signOut();
-      // Redirect to the login page
-      router.push('/login');
+      await supabase.auth.signOut(); // ล็อกเอาท์ผู้ใช้จาก Supabase
+      localStorage.removeItem('user'); // ลบข้อมูลผู้ใช้จาก localStorage
+      router.push('/login'); // กลับไปหน้า login
     } catch (error) {
       console.error('Error logging out:', error);
     }
@@ -59,7 +74,8 @@ const UploadEmotionImages = ({ userName }) => {
       <div className="w-64 bg-sky-200 text-black flex flex-col justify-between p-4">
         <div>
           <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
-          <h2 className="text-xl font-semibold mb-6">{userName}</h2>
+          {/* แสดงชื่อผู้ใช้ที่ดึงมาจาก localStorage */}
+          {userName && <p className="text-lg font-semibold mb-6"> สวัสดี {userName}</p>}
           <hr className="border-sky-300 mb-6" />
         </div>
         <button
