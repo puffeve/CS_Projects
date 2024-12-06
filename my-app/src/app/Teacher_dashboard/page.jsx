@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -7,8 +7,27 @@ export default function TeacherPage() {
   const [selectedAction, setSelectedAction] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
   const [compareType, setCompareType] = useState('same'); // default is same subject
+  const [userName, setUserName] = useState(''); // เก็บชื่อผู้ใช้
   const subjects = ['วิชาคณิตศาสตร์', 'วิทยาศาสตร์', 'ภาษาอังกฤษ'];
   const router = useRouter(); // Hook for navigation
+
+  // ดึงข้อมูลผู้ใช้จาก localStorage
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    
+    if (user) {
+      if (user.role === 'teacher') {
+        setUserName(user.name); // ตั้งค่า userName จาก roll_teacher
+      } else if (user.role === 'student') {
+        setUserName(user.name); // ตั้งค่า userName จาก roll_student (หรือแค่ตรวจสอบให้เหมาะสม)
+      } else {
+        router.push('/login'); // หากไม่มีข้อมูลผู้ใช้หรือ role ไม่ถูกต้อง ให้กลับไปหน้า login
+      }
+    } else {
+      router.push('/login'); // หากไม่มีข้อมูลผู้ใช้ใน localStorage ให้กลับไปหน้า login
+    }
+  }, []);
+
 
   const handleSignOut = async () => {
     // Sign out the user from Supabase
@@ -21,7 +40,11 @@ export default function TeacherPage() {
     <div className="flex h-screen">
       {/* Sidebar */}
       <div className="w-64 bg-sky-200 text-black p-4 relative">
-        <div className="text-xl font-semibold mb-8">ClassMood Insight</div>
+      <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
+        {/* แสดงชื่อผู้ใช้ */}
+        {userName && <div className="text-lg font-semibold mb-4">Hello, {userName}</div>}
+        <hr className="border-sky-300 mb-6" />
+
         <div className="space-y-4">
           <button 
             onClick={() => setSelectedAction('analyze')}
