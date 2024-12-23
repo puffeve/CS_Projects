@@ -102,8 +102,8 @@ export default function AccountManagement() {
                 <th className="border px-4 py-2">ลำดับ</th>
                 <th className="border px-4 py-2">ชื่อ</th>
                 <th className="border px-4 py-2">Email</th>
-                <th className="border px-4 py-2">Role</th>
-                <th className="border px-4 py-2">Phone</th>
+                <th className="border px-4 py-2">บทบาท</th>
+                <th className="border px-4 py-2">เบอร์โทรศัพท์</th>
                 <th className="border px-4 py-2">Actions</th>
               </tr>
             </thead>
