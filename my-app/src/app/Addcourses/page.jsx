@@ -9,6 +9,7 @@ const AdminPage = ({ currentUser }) => {
     namecourses: '',
     year: '',
     teacher: '',
+    term: '',
   });
 
   const [error, setError] = useState(null);
@@ -63,6 +64,7 @@ const AdminPage = ({ currentUser }) => {
         {
           courses_id: formData.courses_id,
           namecourses: formData.namecourses,
+          term: formData.term,
           year: formData.year, // In a real-world app, hash passwords before storing
           name_teacher: formData.name_teacher,
         },
@@ -76,6 +78,7 @@ const AdminPage = ({ currentUser }) => {
       setFormData({
         courses_id: '',
         namecourses: '',
+        term: '',
         year: '',
         name_teacher: '',
       });
@@ -125,7 +128,7 @@ const AdminPage = ({ currentUser }) => {
           {success && <div className="mb-4 text-green-500">{success}</div>}
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label className="block text-gray-700">Courses ID</label>
+              <label className="block text-gray-700">รหัสรายวิชา</label>
               <input
                 type="text"
                 name="courses_id"
@@ -137,7 +140,7 @@ const AdminPage = ({ currentUser }) => {
               />
             </div>
             <div className="mb-4">
-              <label className="block text-gray-700">Namecourses</label>
+              <label className="block text-gray-700">ชื่อรายวิชา</label>
               <input
                 type="text"
                 name="namecourses"
@@ -148,7 +151,22 @@ const AdminPage = ({ currentUser }) => {
               />
             </div>
             <div className="mb-4">
-              <label className="block text-gray-700">Year</label>
+            <label className="block text-gray-700">ภาคการศึกษา</label>
+              <select
+                name="term"
+                value={formData.term}
+                onChange={handleInputChange}
+                className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
+                required
+              >
+            <option value="">เลือกภาคการศึกษา</option> {/* คำอธิบายให้ผู้ใช้เลือกภาคการศึกษา */}
+            <option value="ภาคเรียนที่ 1">ภาคเรียนที่ 1</option>
+            <option value="ภาคเรียนที่ 2">ภาคเรียนที่ 2</option>
+            <option value="ภาคฤดูร้อน">ภาคฤดูร้อน</option>
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="block text-gray-700">ปีการศึกษา</label>
               <select
         name="year"
         value={formData.year}
@@ -165,7 +183,7 @@ const AdminPage = ({ currentUser }) => {
       </select>
     </div>
             <div className="mb-4">
-              <label className="block text-gray-700">Teacher</label>
+              <label className="block text-gray-700">ชื่ออาจารย์ผู้สอน</label>
               <select
         name="name_teacher"
         value={formData.name_teacher}
