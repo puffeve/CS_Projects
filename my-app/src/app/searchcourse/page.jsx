@@ -82,7 +82,7 @@ export default function AccountManagement() {
         {/* ปุ่มเพิ่มรายวิชา */}
         <div className="mb-4">
           <button
-            onClick={() => router.push('/AddCourse')}
+            onClick={() => router.push('/Addcourses')}
             className="bg-green-500 text-white px-4 py-2 rounded-lg"
           >
             เพิ่มรายวิชา
@@ -94,10 +94,11 @@ export default function AccountManagement() {
           <table className="table-auto w-full border-collapse">
             <thead className="bg-gray-200">
               <tr>
-                <th className="border px-4 py-2">Course ID</th>
-                <th className="border px-4 py-2">Year</th>
-                <th className="border px-4 py-2">Course Name</th>
-                <th className="border px-4 py-2">Teacher</th>
+                <th className="border px-4 py-2">รหัสรายวิชา</th>
+                <th className="border px-4 py-2">ชื่อรายวิชา</th>
+                <th className="border px-4 py-2">ภาคเรียนการศึกษา</th>
+                <th className="border px-4 py-2">ปีการศึกษา</th>
+                <th className="border px-4 py-2">อาจารย์ผู้สอน</th>
                 <th className="border px-4 py-2">Actions</th>
               </tr>
             </thead>
@@ -109,8 +110,9 @@ export default function AccountManagement() {
                 .map((course) => (
                   <tr key={course.courses_id} className="border-b">
                     <td className="border px-4 py-2">{course.courses_id}</td>
-                    <td className="border px-4 py-2">{course.year}</td>
                     <td className="border px-4 py-2">{course.namecourses}</td>
+                    <td className="border px-4 py-2">{course.term}</td>
+                    <td className="border px-4 py-2">{course.year}</td>
                     <td className="border px-4 py-2">{course.name_teacher}</td>
                     <td className="border px-4 py-2">
                       <button
