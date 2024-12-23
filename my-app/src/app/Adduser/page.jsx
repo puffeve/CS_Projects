@@ -96,7 +96,7 @@ const AdminPage = ({ currentUser }) => {
           {success && <div className="mb-4 text-green-500">{success}</div>}
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label className="block text-gray-700">Name</label>
+              <label className="block text-gray-700">ชื่อผู้ใช้</label>
               <input
                 type="text"
                 name="name"
@@ -118,7 +118,7 @@ const AdminPage = ({ currentUser }) => {
               />
             </div>
             <div className="mb-4">
-              <label className="block text-gray-700">Password</label>
+              <label className="block text-gray-700">รหัสผ่าน</label>
               <input
                 type="password"
                 name="password"
@@ -129,7 +129,7 @@ const AdminPage = ({ currentUser }) => {
               />
             </div>
             <div className="mb-4">
-              <label className="block text-gray-700">Phone</label>
+              <label className="block text-gray-700">เบอร์โทรศัพท์</label>
               <input
                 type="text"
                 name="phone"
@@ -140,15 +140,15 @@ const AdminPage = ({ currentUser }) => {
               />
             </div>
             <div className="mb-4">
-              <label className="block text-gray-700">Role</label>
+              <label className="block text-gray-700">บทบาท</label>
               <select
                 name="role"
                 value={formData.role}
                 onChange={handleInputChange}
                 className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
               >
-                <option value="teacher">Teacher</option>
-                <option value="student">Student</option>
+                <option value="teacher">อาจารย์ผู้สอน</option>
+                <option value="student">ผู้เรียน</option>
               </select>
             </div>
             <button
