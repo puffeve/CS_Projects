@@ -1,23 +1,28 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 // Sidebar Component
 function Sidebar({ userName, onLogout }) {
     return (
-        <div className="flex flex-col h-screen w-64 bg-sky-200 text-black">
-            <div className="p-4 text-lg font-bold border-b border-gray-700">
-                ClassMood Insight
+        <div className="w-64 bg-sky-200 text-black flex flex-col justify-between p-4 h-screen">
+            <div>
+                <h1 className="text-2xl font-bold">ClassMood Insight</h1>
+                {userName && <p className="text-lg font-semibold mt-4">สวัสดี {userName}</p>}
+                <hr className="border-sky-300 my-6" />
+                <nav>
+          <a href="/searchacc" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลบัญชี</a>
+          <a href="/searchcourse" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลรายวิชา</a>
+          <a href="/searchimg" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลใบหน้า</a>
+        </nav>
             </div>
-            <div className="flex-grow p-4">
-                {/* พื้นที่ว่างใน Sidebar */}
-            </div>
+            <div className="flex-grow"></div>
             <button
                 onClick={onLogout}
-                className="mb-4 mx-4 px-4 py-2 bg-pink-400 hover:bg-pink-200 rounded-md text-center"
+                className="bg-pink-400 text-white px-4 py-2 rounded-lg"
             >
-                Log out
+                ออกจากระบบ
             </button>
         </div>
     );
@@ -25,7 +30,8 @@ function Sidebar({ userName, onLogout }) {
 
 // Edit Account Page
 export default function EditAccount() {
-    const [user, setUser] = useState(null); // เก็บข้อมูลของผู้ใช้
+    const [user, setUser] = useState(null);
+    const [userName, setUserName] = useState('');
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -34,20 +40,29 @@ export default function EditAccount() {
     });
 
     const searchParams = useSearchParams();
-    const userId = searchParams.get('id'); // ดึง user_id จาก URL
+    const userId = searchParams.get('id');
+    const router = useRouter();
 
-    // ฟังก์ชันดึงข้อมูลผู้ใช้จาก Supabase
+    useEffect(() => {
+        const storedUser = JSON.parse(localStorage.getItem('user'));
+        if (storedUser) {
+            setUserName(storedUser.name);
+        } else {
+            router.push('/login');
+        }
+    }, []);
+
     const fetchUserData = async () => {
         if (!userId) return;
 
         const { data: userData, error } = await supabase
             .from('users')
             .select('*')
-            .eq('user_id', userId) // ใช้ user_id จาก URL
+            .eq('user_id', userId)
             .single();
 
         if (userData) {
-            setUser(userData); // กำหนดข้อมูลผู้ใช้
+            setUser(userData);
             setFormData({
                 name: userData.name,
                 email: userData.email,
@@ -56,23 +71,20 @@ export default function EditAccount() {
             });
         }
 
-        if (error) console.error('Error fetching user data:', error); // หากเกิดข้อผิดพลาด
+        if (error) console.error('Error fetching user data:', error);
     };
 
-    // เมื่อโหลดหน้าผู้ใช้ก็จะดึงข้อมูล
     useEffect(() => {
         fetchUserData();
     }, [userId]);
 
-    // ฟังก์ชันจัดการการเปลี่ยนแปลงข้อมูลในฟอร์ม
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
-    // ฟังก์ชันบันทึกการเปลี่ยนแปลงข้อมูล
     const handleSave = async () => {
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('users')
             .update({
                 name: formData.name,
@@ -80,34 +92,31 @@ export default function EditAccount() {
                 phone: formData.phone,
                 role: formData.role,
             })
-            .eq('user_id', userId); // ใช้ user_id จาก URL
+            .eq('user_id', userId);
 
         if (error) {
-            console.error('Error updating user data:', error); // หากเกิดข้อผิดพลาด
+            console.error('Error updating user data:', error);
             alert('Error saving changes.');
         } else {
-            alert('Changes saved successfully!'); // แจ้งเตือนการบันทึกสำเร็จ
+            alert('Changes saved successfully!');
         }
     };
 
-    // ฟังก์ชันสำหรับออกจากระบบ
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();
         if (!error) {
-            window.location.href = '/login'; // เมื่อออกจากระบบแล้วจะไปหน้า login
+            localStorage.removeItem('user');
+            router.push('/login');
         }
     };
 
     return (
         <div className="flex">
-            <Sidebar userName={user?.name} onLogout={handleLogout} /> {/* Sidebar */}
+            <Sidebar userName={userName} onLogout={handleLogout} />
             <div className="flex-1 p-10 flex justify-center items-center">
-                {/* คอนเทนเนอร์หลักที่ใช้จัดตำแหน่งให้ฟอร์มอยู่ตรงกลาง */}
                 <div className="bg-sky-50 p-12 rounded-lg shadow-md w-full max-w-4xl">
-                    {/* เพิ่ม max-w-4xl เพื่อทำให้ฟอร์มใหญ่ขึ้น */}
                     <h1 className="text-3xl font-bold mb-6">แก้ไขบัญชีผู้ใช้</h1>
                     <div className="space-y-6">
-                        {/* ฟอร์มสำหรับแก้ไขข้อมูล */}
                         <div>
                             <label className="block text-sm font-medium mb-1">ชื่อผู้ใช้</label>
                             <input
@@ -148,6 +157,7 @@ export default function EditAccount() {
                             >
                                 <option value="teacher">อาจารย์ผู้สอน</option>
                                 <option value="student">ผู้เรียน</option>
+                                <option value="admin">ผู้ดูแลระบบ</option>
                             </select>
                         </div>
                         <div className="flex justify-center items-center mt-6">
