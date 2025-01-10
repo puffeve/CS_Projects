@@ -42,7 +42,7 @@ export default function TeacherPage() {
       <div className="w-64 bg-sky-200 text-black p-4 relative">
       <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
         {/* แสดงชื่อผู้ใช้ */}
-        {userName && <div className="text-lg font-semibold mb-4">Hello, {userName}</div>}
+        {userName && <div className="text-lg font-semibold mb-4">สวัสดี {userName}</div>}
         <hr className="border-sky-300 mb-6" />
 
         <div className="space-y-4">
