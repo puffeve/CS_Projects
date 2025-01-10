@@ -1,7 +1,7 @@
 'use client';
-import { useState ,useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase'; // Ensure this is properly configured
+import { supabase } from '@/lib/supabase';
 
 const AdminPage = ({ currentUser }) => {
   const [formData, setFormData] = useState({
@@ -14,39 +14,44 @@ const AdminPage = ({ currentUser }) => {
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const router = useRouter(); // Initialize useRouter
+  const [userName, setUserName] = useState('');
+  const router = useRouter();
 
-  // คำนวณปีจากปีปัจจุบันถึงย้อนหลัง 5 ปีและปีข้างหน้า 5 ปี
-  const currentYear = new Date().getFullYear();  // ปี ค.ศ.
+  useEffect(() => {
+    if (currentUser) {
+      setUserName(currentUser.name);
+    } else {
+      const storedUser = JSON.parse(localStorage.getItem('user'));
+      if (storedUser) {
+        setUserName(storedUser.name);
+      } else {
+        router.push('/login');
+      }
+    }
+  }, [currentUser]);
+
+  const currentYear = new Date().getFullYear();
   const years = [];
-
-  // ปีย้อนหลัง 5 ปี
   for (let i = currentYear - 5; i <= currentYear + 5; i++) {
-    const buddhistYear = i + 543;  // แปลงจากปี ค.ศ. เป็นปี พ.ศ.
-    years.push(buddhistYear);
+    years.push(i + 543);
   }
-  
-  const [teachers, setTeachers] = useState([]); // ใช้สำหรับเก็บข้อมูลครูที่มี role เป็น "teacher"
+
+  const [teachers, setTeachers] = useState([]);
 
   useEffect(() => {
     const fetchTeachers = async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('name')  // เลือกเฉพาะ id และ name ของครู
-        .eq('role', 'teacher');  // กรองเฉพาะ role ที่เป็น 'teacher'
-  
+        .select('name')
+        .eq('role', 'teacher');
       if (error) {
-        console.error("Error fetching teachers:", error);  // แสดงข้อผิดพลาดใน console
-        setError('Failed to fetch teacher');  // ตั้งค่าข้อผิดพลาดให้กับ state
+        setError('Failed to fetch teacher');
       } else {
-        console.log("Fetched teacher:", data);  // แสดงข้อมูลที่ดึงมาจาก Supabase
-        setTeachers(data);  // เก็บข้อมูลครูลงใน state
+        setTeachers(data);
       }
     };
-  
-    fetchTeachers();  // เรียกใช้ฟังก์ชันดึงข้อมูล
-  }, []);  // ทำงานแค่ครั้งเดียวเมื่อ component ถูกโหลด
-
+    fetchTeachers();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -57,24 +62,17 @@ const AdminPage = ({ currentUser }) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-
     try {
-      console.log('Form data being submitted:', formData);  // เพิ่มการ log เพื่อตรวจสอบข้อมูล
-      const { data, error } = await supabase.from('courses').insert([
-        {
-          courses_id: formData.courses_id,
-          namecourses: formData.namecourses,
-          term: formData.term,
-          year: formData.year, // In a real-world app, hash passwords before storing
-          name_teacher: formData.name_teacher,
-        },
-      ]);
+      const { error } = await supabase.from('courses').insert([{
+        courses_id: formData.courses_id,
+        namecourses: formData.namecourses,
+        term: formData.term,
+        year: formData.year,
+        name_teacher: formData.name_teacher,
+      }]);
+      if (error) throw error;
 
-      if (error) {
-        throw error;
-      }
-
-      setSuccess('Courses added successfully!');
+      setSuccess('เพิ่มรายวิชาสำเร็จ!');
       setFormData({
         courses_id: '',
         namecourses: '',
@@ -87,11 +85,11 @@ const AdminPage = ({ currentUser }) => {
     }
   };
 
-  // New function for handling logout
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut(); // Sign out using Supabase
+    const { error } = await supabase.auth.signOut();
     if (!error) {
-      router.push('/login'); // Redirect to the login page
+      localStorage.removeItem('user');
+      router.push('/login');
     } else {
       setError('Logout failed. Please try again.');
     }
@@ -99,35 +97,33 @@ const AdminPage = ({ currentUser }) => {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar */}
-      <div className="w-64 bg-sky-200 text-black flex flex-col justify-between">
-        <div className="p-6">
-          <h1 className="text-xl font-bold">ClassMood Insight</h1>
-
-          <nav className="mt-10">
-            <a href="./Adduser" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลบัญชี</a>
-            <a href="./Addcourses" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลรายวิชา</a>
-            <a href="#" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลใบหน้า</a>
+      <div className="w-64 bg-sky-200 text-black flex flex-col justify-between p-4 h-screen">
+        <div>
+          <h1 className="text-2xl font-bold">ClassMood Insight</h1>
+          {userName && <p className="text-lg font-semibold mt-4">สวัสดี {userName}</p>}
+          <hr className="border-sky-300 my-6" />
+          <nav>
+            <a href="/searchacc" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลบัญชี</a>
+            <a href="/searchcourse" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลรายวิชา</a>
+            <a href="/searchimg" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลใบหน้า</a>
           </nav>
         </div>
-        <div className="p-6">
-          <button 
-            onClick={handleLogout} // Bind the logout function
-            className="w-full py-2 px-4 bg-pink-400 hover:bg-pink-200 rounded-lg"
-          >
-            ออกจากระบบ
-          </button>
-        </div>
+        <div className="flex-grow"></div>
+        <button
+          onClick={handleLogout}
+          className="bg-pink-400 text-white px-4 py-2 rounded-lg"
+        >
+          ออกจากระบบ
+        </button>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 p-10 flex justify-center items-center">
         <div className="bg-sky-50 p-8 rounded-lg shadow-md w-full max-w-2xl">
           <h2 className="text-2xl font-semibold mb-6">เพิ่มรายวิชา</h2>
           {error && <div className="mb-4 text-red-500">{error}</div>}
           {success && <div className="mb-4 text-green-500">{success}</div>}
           <form onSubmit={handleSubmit}>
-            <div className="mb-4">
+          <div className="mb-4">
               <label className="block text-gray-700">รหัสรายวิชา</label>
               <input
                 type="text"
@@ -136,7 +132,6 @@ const AdminPage = ({ currentUser }) => {
                 onChange={handleInputChange}
                 className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
                 required
-                placeholder="กรุณากรอกข้อมูลเป็นตัวเลขเท่านั้น"  // ข้อความที่จางๆ จะปรากฏใน TextBox
               />
             </div>
             <div className="mb-4">
@@ -151,55 +146,35 @@ const AdminPage = ({ currentUser }) => {
               />
             </div>
             <div className="mb-4">
-            <label className="block text-gray-700">ภาคการศึกษา</label>
+              <label className="block text-gray-700">ปีการศึกษา</label>
               <select
-                name="term"
-                value={formData.term}
+                name="year"
+                value={formData.year}
                 onChange={handleInputChange}
                 className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
                 required
               >
-            <option value="">เลือกภาคการศึกษา</option> {/* คำอธิบายให้ผู้ใช้เลือกภาคการศึกษา */}
-            <option value="ภาคเรียนที่ 1">ภาคเรียนที่ 1</option>
-            <option value="ภาคเรียนที่ 2">ภาคเรียนที่ 2</option>
-            <option value="ภาคฤดูร้อน">ภาคฤดูร้อน</option>
+                <option value="">เลือกปีการศึกษา</option>
+                {years.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
               </select>
             </div>
             <div className="mb-4">
-              <label className="block text-gray-700">ปีการศึกษา</label>
-              <select
-        name="year"
-        value={formData.year}
-        onChange={handleInputChange}
-        className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
-        required
-      >
-        <option value="">เลือกปีการศึกษา</option>  {/* แสดงคำอธิบายให้ผู้ใช้เลือก */}
-        {years.map((year) => (
-          <option key={year} value={year}>
-            {year}
-          </option>
-        ))}
-      </select>
-    </div>
-            <div className="mb-4">
               <label className="block text-gray-700">ชื่ออาจารย์ผู้สอน</label>
               <select
-        name="name_teacher"
-        value={formData.name_teacher}
-        onChange={handleInputChange}
-        className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
-        required
-      >
-        <option value="">เลือกครูผู้สอน</option> {/* ตัวเลือกเริ่มต้น */}
-        {teachers.map((teacher) => (
-          <option key={teacher.id} value={teacher.name}>
-            {teacher.name} {/* แสดงชื่อครูที่ดึงมาจาก Supabase */}
-          </option>
-        ))}
-      </select>
-      {error && <div className="text-red-500 mt-2">{error}</div>} {/* แสดงข้อผิดพลาดหากมีการดึงข้อมูลผิดพลาด */}
-    </div>
+                name="name_teacher"
+                value={formData.name_teacher}
+                onChange={handleInputChange}
+                className="mt-1 p-3 w-full border rounded-lg"
+                required
+              >
+                <option value="">เลือกครูผู้สอน</option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.name}>{teacher.name}</option>
+                ))}
+              </select>
+            </div>
             <button
               type="submit"
               className="w-full py-3 px-4 bg-pink-400 hover:bg-pink-200 text-white rounded-lg"
