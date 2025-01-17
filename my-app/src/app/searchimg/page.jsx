@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';  // ใช้ useRouter เพื่อทำการ redirect
+import { useRouter } from 'next/navigation'; // ใช้ useRouter เพื่อทำการ redirect ไปหน้า login
 import { supabase } from '@/lib/supabase';
 
 export default function ImageManagement() {
@@ -22,60 +22,69 @@ export default function ImageManagement() {
       router.push('/login'); // หากไม่มีข้อมูลผู้ใช้ ให้กลับไปหน้า login
     }
 
-    fetchImages();
+    fetchImages(); // เรียกฟังก์ชัน fetchImages เพื่อดึงข้อมูลภาพจาก Supabase
   }, [router]); // ใส่ router ใน dependencies เพื่อให้แน่ใจว่าใช้ข้อมูล router ที่ถูกต้อง
 
-  // ดึงข้อมูลภาพจาก Supabase
+  // ฟังก์ชันดึงข้อมูลภาพจาก Supabase
   async function fetchImages() {
     try {
       const { data, error } = await supabase.storage.from('img_emotion').list('', {
-        limit: 100,
+        limit: 100, // กำหนดจำนวนไฟล์ที่ต้องการดึงมา
       });
 
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(error.message); // หากเกิดข้อผิดพลาดให้แสดงข้อผิดพลาด
+
+      // ตรวจสอบว่ามีข้อมูลไฟล์จริงหรือไม่
+      console.log('Fetched Images:', data);
 
       const files = data
-        .filter((item) => item.type === 'file')
-        .map((file) => ({
-          ...file,
-          url: supabase.storage.from('img_emotion').getPublicUrl(file.name).data.publicUrl,
-        }));
+        .filter((item) => item.type === 'file') // กรองเฉพาะไฟล์
+        .map((file) => {
+          // สร้าง URL ตาม path ที่เก็บไฟล์
+          const filePath = file.name; // ชื่อไฟล์จะต้องเป็น ${userId}/${emotion}-${timestamp}.jpg
+          const publicUrl = supabase.storage.from('img_emotion').getPublicUrl(filePath).data.publicUrl;
+          console.log('Public URL:', publicUrl);  // ตรวจสอบ URL ที่ได้
+          return {
+            ...file, // ส่งข้อมูลไฟล์ทั้งหมด
+            url: publicUrl, // เพิ่ม URL ที่สามารถเข้าถึงภาพได้
+          };
+        });
 
-      setImages(files);
+      setImages(files); // กำหนดภาพทั้งหมดให้ state images
       setFilteredImages(files); // กำหนดภาพเริ่มต้นสำหรับการกรอง
     } catch (err) {
       console.error('Error fetching images:', err.message);
-      setError(err.message);
+      setError(err.message); // ถ้ามีข้อผิดพลาด ให้แสดงข้อความข้อผิดพลาด
     }
   }
 
   // ฟังก์ชันลบภาพ
   async function deleteImage(fileName) {
-    if (confirm(`คุณต้องการลบภาพนี้: ${fileName}?`)) {
+    if (confirm(`คุณต้องการลบภาพนี้: ${fileName}?`)) { // ถามยืนยันการลบภาพ
       try {
         const { error } = await supabase.storage.from('img_emotion').remove([fileName]);
 
-        if (error) throw new Error(error.message);
+        if (error) throw new Error(error.message); // หากเกิดข้อผิดพลาดให้แสดงข้อผิดพลาด
 
         console.log(`Image deleted: ${fileName}`);
-        fetchImages(); // โหลดภาพใหม่หลังจากลบ
+        fetchImages(); // โหลดภาพใหม่หลังจากลบภาพ
       } catch (err) {
         console.error('Error deleting image:', err.message);
-        setError(err.message);
+        setError(err.message); // ถ้ามีข้อผิดพลาด ให้แสดงข้อความข้อผิดพลาด
       }
     }
   }
 
   // ฟังก์ชันกรองภาพตามวันที่
   function filterImagesByDate(option) {
-    const now = new Date();
-    let filtered = images;
+    const now = new Date(); // วันที่ปัจจุบัน
+    let filtered = images; // กรองภาพจาก images ทั้งหมด
 
     switch (option) {
       case 'today':
         filtered = images.filter((image) => {
-          const fileDate = new Date(image.created_at || image.updated_at);
-          return fileDate.toDateString() === now.toDateString();
+          const fileDate = new Date(image.created_at || image.updated_at); // ใช้วันที่ที่สร้างหรืออัปเดตไฟล์
+          return fileDate.toDateString() === now.toDateString(); // กรองเฉพาะภาพที่สร้างวันนี้
         });
         break;
 
@@ -83,8 +92,8 @@ export default function ImageManagement() {
         filtered = images.filter((image) => {
           const fileDate = new Date(image.created_at || image.updated_at);
           const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(now.getDate() - 7);
-          return fileDate >= sevenDaysAgo;
+          sevenDaysAgo.setDate(now.getDate() - 7); // วันที่ 7 วันที่แล้ว
+          return fileDate >= sevenDaysAgo; // กรองภาพในช่วง 7 วันที่ผ่านมา
         });
         break;
 
@@ -92,35 +101,35 @@ export default function ImageManagement() {
         filtered = images.filter((image) => {
           const fileDate = new Date(image.created_at || image.updated_at);
           const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(now.getDate() - 30);
-          return fileDate >= thirtyDaysAgo;
+          thirtyDaysAgo.setDate(now.getDate() - 30); // วันที่ 30 วันที่แล้ว
+          return fileDate >= thirtyDaysAgo; // กรองภาพในช่วง 30 วันที่ผ่านมา
         });
         break;
 
       case 'thisYear':
         filtered = images.filter((image) => {
           const fileDate = new Date(image.created_at || image.updated_at);
-          return fileDate.getFullYear() === now.getFullYear();
+          return fileDate.getFullYear() === now.getFullYear(); // กรองภาพที่สร้างในปีนี้
         });
         break;
 
       case 'lastYear':
         filtered = images.filter((image) => {
           const fileDate = new Date(image.created_at || image.updated_at);
-          return fileDate.getFullYear() === now.getFullYear() - 1;
+          return fileDate.getFullYear() === now.getFullYear() - 1; // กรองภาพที่สร้างในปีที่แล้ว
         });
         break;
 
       default:
-        filtered = images;
+        filtered = images; // หากไม่ได้เลือกตัวกรอง ให้แสดงภาพทั้งหมด
         break;
     }
 
-    setFilteredImages(filtered);
+    setFilteredImages(filtered); // กำหนดภาพที่ผ่านการกรองแล้ว
   }
 
   const handleLogout = () => {
-    // Clear user data from localStorage and redirect to login page
+    // ลบข้อมูลผู้ใช้จาก localStorage และ redirect ไปหน้า login
     localStorage.removeItem('user');
     router.push('/login');
   };
@@ -134,10 +143,10 @@ export default function ImageManagement() {
           {userName && <p className="text-lg font-semibold mb-6">สวัสดี {userName}</p>}
           <hr className="border-sky-300 mb-6" />
           <nav>
-          <a href="/searchacc" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลบัญชี</a>
-          <a href="/searchcourse" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลรายวิชา</a>
-          <a href="/searchimg" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลใบหน้า</a>
-        </nav>
+            <a href="/searchacc" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลบัญชี</a>
+            <a href="/searchcourse" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลรายวิชา</a>
+            <a href="/searchimg" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลใบหน้า</a>
+          </nav>
         </div>
         <button
           onClick={handleLogout}
@@ -162,7 +171,7 @@ export default function ImageManagement() {
             value={filterOption}
             onChange={(e) => {
               setFilterOption(e.target.value);
-              filterImagesByDate(e.target.value);
+              filterImagesByDate(e.target.value); // เรียกฟังก์ชันกรองภาพ
             }}
             className="border rounded px-4 py-2"
           >
