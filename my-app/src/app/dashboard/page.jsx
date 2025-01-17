@@ -32,7 +32,7 @@ const AdminDashboard = () => {
           </button>
           
           <button
-            onClick={() => navigateTo('/admin/manage-face-data')}
+            onClick={() => navigateTo('/searchimg')}
             className="w-full bg-purple-400 text-white py-4 rounded-lg hover:bg-purple-300 transition"
           >
             จัดการข้อมูลใบหน้า
