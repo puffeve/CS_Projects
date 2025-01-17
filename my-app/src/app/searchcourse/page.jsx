@@ -5,61 +5,106 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export default function AccountManagement() {
-  const [courses, setCourses] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [userName, setUserName] = useState('');
-  const [selectedYear, setSelectedYear] = useState('');
-  const [selectedTerm, setSelectedTerm] = useState('');
+  // กำหนด state สำหรับข้อมูลต่างๆ
+  const [courses, setCourses] = useState([]); // รายวิชาทั้งหมด
+  const [searchTerm, setSearchTerm] = useState(''); // คำค้นหาของผู้ใช้
+  const [userName, setUserName] = useState(''); // ชื่อผู้ใช้
+  const [selectedYear, setSelectedYear] = useState(''); // ปีการศึกษาที่ผู้ใช้เลือก
+  const [selectedTerm, setSelectedTerm] = useState(''); // ภาคเรียนที่ผู้ใช้เลือก
+  const [errorMessage, setErrorMessage] = useState(''); // ข้อความแสดงข้อผิดพลาด
+  const [isSearchTriggered, setIsSearchTriggered] = useState(false); // สถานะการค้นหาว่ามีการกดค้นหาหรือไม่
   const router = useRouter();
 
-  const currentYear = new Date().getFullYear(); // ปีคริสต์ศักราช
-  const currentBuddhistYear = currentYear + 543; // ปีพุทธศักราช
-  const years = Array.from({ length: 11 }, (_, index) => currentBuddhistYear - 5 + index); // ปีพ.ศ. จาก 5 ปีที่ผ่านมา ถึง 5 ปีข้างหน้า
+  // คำนวณปีปัจจุบันและปีพุทธศักราช
+  const currentYear = new Date().getFullYear();
+  const currentBuddhistYear = currentYear + 543;
+  // สร้าง array ปีการศึกษาที่มีทั้งหมด 11 ปี
+  const years = Array.from({ length: 11 }, (_, index) => currentBuddhistYear - 5 + index);
 
-  // ดึงข้อมูลจาก Supabase
   useEffect(() => {
+    // ดึงข้อมูลรายวิชาจากฐานข้อมูล
     fetchCourses();
 
-    // ตรวจสอบข้อมูลผู้ใช้ใน localStorage
     const user = JSON.parse(localStorage.getItem('user'));
     if (user) {
-      setUserName(user.name); // ตั้งชื่อผู้ใช้จากข้อมูลใน localStorage
+      setUserName(user.name); // กำหนดชื่อผู้ใช้หากมีการล็อกอิน
     } else {
-      router.push('/login'); // หากไม่มีข้อมูลผู้ใช้ ให้กลับไปหน้า login
+      router.push('/login'); // หากไม่พบผู้ใช้ให้ไปยังหน้า login
     }
   }, []);
 
+  // ฟังก์ชันดึงข้อมูลรายวิชาจากฐานข้อมูล
   async function fetchCourses() {
     const { data, error } = await supabase.from('courses').select('*');
     if (error) {
       console.error('Error fetching courses:', error);
     } else {
-      const sortedCourses = data.sort((a, b) => a.courses_id - b.courses_id);
+      const sortedCourses = data.sort((a, b) => a.courses_id - b.courses_id); // เรียงลำดับรายวิชาตามรหัส
       setCourses(sortedCourses);
     }
   }
 
-  // ฟังก์ชันลบข้อมูล
+  // ฟังก์ชันลบรายวิชา
   async function deleteCourse(courses_id) {
-    if (confirm('คุณต้องการลบรายวิชานี้หรือไม่?')) {
+    if (confirm('คุณต้องการลบรายวิชานี้หรือไม่?')) { // ถามผู้ใช้ก่อนลบ
       const { error } = await supabase.from('courses').delete().eq('courses_id', courses_id);
       if (error) {
         console.error('Error deleting course:', error);
       } else {
-        fetchCourses(); // อัปเดตรายการหลังลบ
+        fetchCourses(); // รีเฟรชข้อมูลหลังจากลบ
       }
     }
   }
 
-  // ฟังก์ชัน Log out
+  // ฟังก์ชันออกจากระบบ
   async function handleLogout() {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Error logging out:', error);
     } else {
-      router.push('/login');
+      router.push('/login'); // พาผู้ใช้กลับไปที่หน้า login หลังออกจากระบบ
     }
   }
+
+  // ฟังก์ชันสำหรับการค้นหา
+  const handleSearch = () => {
+    // ตรวจสอบว่าผู้ใช้กรอกข้อมูลหรือเลือกตัวเลือกก่อนทำการค้นหาหรือไม่
+    if (!searchTerm.trim() && !selectedYear && !selectedTerm) {
+      setErrorMessage('กรุณากรอกข้อมูลหรือเลือกตัวเลือกก่อนทำการค้นหา');
+      setIsSearchTriggered(false); // ไม่ทำการค้นหาหากไม่มีการกรอกข้อมูล
+      return;
+    }
+    setErrorMessage(''); // ล้างข้อความแสดงข้อผิดพลาด
+    setIsSearchTriggered(true); // ทำการค้นหา
+  };
+
+  // ฟังก์ชันสำหรับการเปลี่ยนแปลงคำค้นหา
+  const handleSearchTermChange = (e) => {
+    setSearchTerm(e.target.value);
+    setIsSearchTriggered(false); // ไม่ทำการค้นหาทันทีเมื่อเปลี่ยนคำค้นหา
+  };
+
+  // ฟังก์ชันสำหรับการเปลี่ยนแปลงปีการศึกษา
+  const handleYearChange = (e) => {
+    setSelectedYear(e.target.value ? Number(e.target.value) : ''); // แปลงค่าเป็นตัวเลขหากมีการเลือกปี
+    setIsSearchTriggered(false); // ไม่ทำการค้นหาทันทีเมื่อเปลี่ยนปี
+  };
+
+  // ฟังก์ชันสำหรับการเปลี่ยนแปลงภาคเรียน
+  const handleTermChange = (e) => {
+    setSelectedTerm(e.target.value);
+    setIsSearchTriggered(false); // ไม่ทำการค้นหาทันทีเมื่อเปลี่ยนภาคเรียน
+  };
+
+  // การกรองรายวิชาตามคำค้นหา, ปีการศึกษา, และภาคเรียน
+  const filteredCourses = isSearchTriggered
+    ? courses.filter((course) => {
+        const matchesSearch = course.namecourses.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesYear = selectedYear ? course.year === selectedYear : true;
+        const matchesTerm = selectedTerm ? course.term === selectedTerm : true;
+        return matchesSearch && matchesYear && matchesTerm;
+      })
+    : courses;
 
   return (
     <div className="flex h-screen">
@@ -77,7 +122,7 @@ export default function AccountManagement() {
         </div>
         <button
           onClick={handleLogout}
-          className="bg-pink-400 text-white px-4 py-2 m-4 rounded-lg"
+          className="bg-pink-400 text-black px-4 py-2 m-4 rounded-lg"
         >
           ออกจากระบบ
         </button>
@@ -93,20 +138,13 @@ export default function AccountManagement() {
             type="text"
             placeholder="ค้นหารายวิชา"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearchTermChange}
             className="border rounded-lg px-4 py-2 w-full max-w-md"
           />
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-lg">
-            ค้นหา
-          </button>
-        </div>
-
-        {/* เลือกปีการศึกษาและภาคเรียน */}
-        <div className="flex gap-4 mb-4">
-          {/* ปีการศึกษา (ปีพุทธศักราช) */}
+          {/* ปีการศึกษา */}
           <select
             value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            onChange={handleYearChange}
             className="border rounded-lg px-4 py-2"
           >
             <option value="">เลือกปีการศึกษา</option>
@@ -114,11 +152,10 @@ export default function AccountManagement() {
               <option key={index} value={year}>{year}</option>
             ))}
           </select>
-
           {/* ภาคเรียนการศึกษา */}
           <select
             value={selectedTerm}
-            onChange={(e) => setSelectedTerm(e.target.value)}
+            onChange={handleTermChange}
             className="border rounded-lg px-4 py-2"
           >
             <option value="">เลือกภาคเรียน</option>
@@ -126,8 +163,13 @@ export default function AccountManagement() {
               <option key={index} value={term}>{term}</option>
             ))}
           </select>
+          <button onClick={handleSearch} className="bg-blue-500 text-white px-4 py-2 rounded-lg">
+            ค้นหา
+          </button>
+        </div>
 
-          {/* ปุ่มเพิ่มรายวิชา */}
+        {/* ปุ่มเพิ่มรายวิชา */}
+        <div className="flex justify-start mb-4">
           <button
             onClick={() => router.push('/Addcourses')}
             className="bg-green-500 text-white px-4 py-2 rounded-lg"
@@ -137,6 +179,7 @@ export default function AccountManagement() {
         </div>
 
         {/* ตารางรายการวิชา */}
+        {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}
         <div className="bg-white rounded-lg shadow-md p-4">
           <table className="table-auto w-full border-collapse">
             <thead className="bg-gray-200">
@@ -146,44 +189,33 @@ export default function AccountManagement() {
                 <th className="border px-4 py-2">ภาคเรียนการศึกษา</th>
                 <th className="border px-4 py-2">ปีการศึกษา</th>
                 <th className="border px-4 py-2">อาจารย์ผู้สอน</th>
-                <th className="border px-4 py-2">ไอดีอาจารย์ผู้สอน</th>
                 <th className="border px-4 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {courses
-                .filter((course) =>
-                  course.namecourses.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .filter((course) => {
-                  // ตรวจสอบปีการศึกษาให้ตรงกับ selectedYear (เป็น int)
-                  return (selectedYear ? course.year === selectedYear : true) &&
-                         (selectedTerm ? course.term === selectedTerm : true);
-                })
-                .map((course) => (
-                  <tr key={course.courses_id} className="border-b">
-                    <td className="border px-4 py-2">{course.courses_id}</td>
-                    <td className="border px-4 py-2">{course.namecourses}</td>
-                    <td className="border px-4 py-2">{course.term}</td>
-                    <td className="border px-4 py-2">{course.year}</td>
-                    <td className="border px-4 py-2">{course.name_teacher}</td>
-                    <td className="border px-4 py-2">{course.user_id}</td>
-                    <td className="border px-4 py-2">
-                      <button
-                        className="bg-yellow-500 text-white px-3 py-1 rounded-lg"
-                        onClick={() => router.push(`/Editcourse?courses_id=${course.courses_id}`)}
-                      >
-                        แก้ไข
-                      </button>
-                      <button
-                        className="bg-red-500 text-white px-3 py-1 rounded-lg ml-2"
-                        onClick={() => deleteCourse(course.courses_id)}
-                      >
-                        ลบ
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+              {filteredCourses.map((course) => (
+                <tr key={course.courses_id} className="border-b">
+                  <td className="border px-4 py-2">{course.courses_id}</td>
+                  <td className="border px-4 py-2">{course.namecourses}</td>
+                  <td className="border px-4 py-2">{course.term}</td>
+                  <td className="border px-4 py-2">{course.year}</td>
+                  <td className="border px-4 py-2">{course.name_teacher}</td>
+                  <td className="border px-4 py-2">
+                    <button
+                      className="bg-yellow-500 text-white px-3 py-1 rounded-lg"
+                      onClick={() => router.push(`/Editcourse?courses_id=${course.courses_id}`)}
+                    >
+                      แก้ไข
+                    </button>
+                    <button
+                      className="bg-red-500 text-white px-3 py-1 rounded-lg ml-2"
+                      onClick={() => deleteCourse(course.courses_id)}
+                    >
+                      ลบ
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
