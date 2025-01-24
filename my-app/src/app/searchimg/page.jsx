@@ -1,137 +1,135 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation'; // ใช้ useRouter เพื่อทำการ redirect ไปหน้า login
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export default function ImageManagement() {
   const [images, setImages] = useState([]); // เก็บข้อมูลภาพทั้งหมด
-  const [filteredImages, setFilteredImages] = useState([]); // เก็บข้อมูลภาพหลังการกรอง
+  const [filteredImages, setFilteredImages] = useState([]); // เก็บข้อมูลภาพที่กรองแล้ว
   const [filterOption, setFilterOption] = useState('all'); // ตัวเลือกการกรอง
-  const [error, setError] = useState(null); // เก็บข้อความข้อผิดพลาด
-  const [userName, setUserName] = useState(''); // เพิ่ม state สำหรับชื่อผู้ใช้งาน
-  const router = useRouter(); // ใช้ router เพื่อ redirect ไปหน้า login
+  const [error, setError] = useState(null); // เก็บข้อผิดพลาด
+  const [userName, setUserName] = useState(''); // เก็บชื่อผู้ใช้
+  const router = useRouter();
 
   // โหลดภาพเมื่อ Component ถูก mount
   useEffect(() => {
-    // ตรวจสอบข้อมูลผู้ใช้ใน localStorage
-    const user = JSON.parse(localStorage.getItem('user'));
+    const user = JSON.parse(localStorage.getItem('user')); // ดึงข้อมูลผู้ใช้จาก localStorage
     if (user) {
-      setUserName(user.name); // ตั้งชื่อผู้ใช้จากข้อมูลใน localStorage
+      setUserName(user.name); // ตั้งชื่อผู้ใช้
     } else {
-      router.push('/login'); // หากไม่มีข้อมูลผู้ใช้ ให้กลับไปหน้า login
+      router.push('/login'); // ถ้าไม่มีผู้ใช้ ให้ไปที่หน้า login
     }
 
-    fetchImages(); // เรียกฟังก์ชัน fetchImages เพื่อดึงข้อมูลภาพจาก Supabase
-  }, [router]); // ใส่ router ใน dependencies เพื่อให้แน่ใจว่าใช้ข้อมูล router ที่ถูกต้อง
+    fetchImages(); // ดึงข้อมูลภาพทั้งหมด
+  }, [router]);
 
   // ฟังก์ชันดึงข้อมูลภาพจาก Supabase
   async function fetchImages() {
     try {
-      const { data, error } = await supabase.storage.from('img_emotion').list('', {
-        limit: 100, // กำหนดจำนวนไฟล์ที่ต้องการดึงมา
-      });
+      const { data, error } = await supabase.storage
+        .from('img_emotion')
+        .list('', { limit: 100 }); // ดึงข้อมูลภาพจาก storage ทั้งหมด (ไม่ใช้ userId)
 
-      if (error) throw new Error(error.message); // หากเกิดข้อผิดพลาดให้แสดงข้อผิดพลาด
+      if (error) throw new Error(error.message); // ถ้ามีข้อผิดพลาดให้แสดงข้อผิดพลาด
 
-      // ตรวจสอบว่ามีข้อมูลไฟล์จริงหรือไม่
-      console.log('Fetched Images:', data);
-
+      // แปลงข้อมูลให้เป็น public URL
       const files = data
         .filter((item) => item.type === 'file') // กรองเฉพาะไฟล์
         .map((file) => {
-          // สร้าง URL ตาม path ที่เก็บไฟล์
-          const filePath = file.name; // ชื่อไฟล์จะต้องเป็น ${userId}/${emotion}-${timestamp}.jpg
-          const publicUrl = supabase.storage.from('img_emotion').getPublicUrl(filePath).data.publicUrl;
-          console.log('Public URL:', publicUrl);  // ตรวจสอบ URL ที่ได้
+          const filePath = file.name; // ใช้ชื่อไฟล์โดยตรง
+          const publicUrl = supabase.storage
+            .from('img_emotion')
+            .getPublicUrl(filePath).data.publicUrl; // ดึง public URL ของไฟล์
           return {
-            ...file, // ส่งข้อมูลไฟล์ทั้งหมด
-            url: publicUrl, // เพิ่ม URL ที่สามารถเข้าถึงภาพได้
+            ...file,
+            url: publicUrl, // เพิ่ม URL ของไฟล์เข้าไปในข้อมูล
           };
         });
 
-      setImages(files); // กำหนดภาพทั้งหมดให้ state images
-      setFilteredImages(files); // กำหนดภาพเริ่มต้นสำหรับการกรอง
+      setImages(files); // ตั้งค่าภาพทั้งหมด
+      setFilteredImages(files); // ตั้งค่าภาพที่กรองแล้ว
     } catch (err) {
       console.error('Error fetching images:', err.message);
-      setError(err.message); // ถ้ามีข้อผิดพลาด ให้แสดงข้อความข้อผิดพลาด
+      setError(err.message); // แสดงข้อผิดพลาด
     }
   }
 
   // ฟังก์ชันลบภาพ
-  async function deleteImage(fileName) {
-    if (confirm(`คุณต้องการลบภาพนี้: ${fileName}?`)) { // ถามยืนยันการลบภาพ
+  async function deleteImage(filePath) {
+    if (confirm(`คุณต้องการลบภาพนี้: ${filePath}?`)) { // ถามผู้ใช้ว่าแน่ใจหรือไม่
       try {
-        const { error } = await supabase.storage.from('img_emotion').remove([fileName]);
+        const { error } = await supabase.storage
+          .from('img_emotion')
+          .remove([filePath]); // ลบไฟล์จาก storage
 
-        if (error) throw new Error(error.message); // หากเกิดข้อผิดพลาดให้แสดงข้อผิดพลาด
+        if (error) throw new Error(error.message); // ถ้ามีข้อผิดพลาดให้แสดงข้อผิดพลาด
 
-        console.log(`Image deleted: ${fileName}`);
-        fetchImages(); // โหลดภาพใหม่หลังจากลบภาพ
+        console.log(`Image deleted: ${filePath}`);
+        fetchImages(); // รีเฟรชภาพหลังจากลบ
       } catch (err) {
         console.error('Error deleting image:', err.message);
-        setError(err.message); // ถ้ามีข้อผิดพลาด ให้แสดงข้อความข้อผิดพลาด
+        setError(err.message); // แสดงข้อผิดพลาด
       }
     }
   }
 
   // ฟังก์ชันกรองภาพตามวันที่
   function filterImagesByDate(option) {
-    const now = new Date(); // วันที่ปัจจุบัน
-    let filtered = images; // กรองภาพจาก images ทั้งหมด
+    const now = new Date(); // วันปัจจุบัน
+    let filtered = images;
 
     switch (option) {
-      case 'today':
+      case 'today': // กรองเฉพาะภาพที่อัปโหลดวันนี้
         filtered = images.filter((image) => {
-          const fileDate = new Date(image.created_at || image.updated_at); // ใช้วันที่ที่สร้างหรืออัปเดตไฟล์
-          return fileDate.toDateString() === now.toDateString(); // กรองเฉพาะภาพที่สร้างวันนี้
+          const fileDate = new Date(image.created_at || image.updated_at);
+          return fileDate.toDateString() === now.toDateString();
         });
         break;
 
-      case 'last7days':
+      case 'last7days': // กรองภาพใน 7 วันที่ผ่านมา
         filtered = images.filter((image) => {
           const fileDate = new Date(image.created_at || image.updated_at);
           const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(now.getDate() - 7); // วันที่ 7 วันที่แล้ว
-          return fileDate >= sevenDaysAgo; // กรองภาพในช่วง 7 วันที่ผ่านมา
+          sevenDaysAgo.setDate(now.getDate() - 7); // คำนวณวัน 7 วันที่แล้ว
+          return fileDate >= sevenDaysAgo;
         });
         break;
 
-      case 'last30days':
+      case 'last30days': // กรองภาพใน 30 วันที่ผ่านมา
         filtered = images.filter((image) => {
           const fileDate = new Date(image.created_at || image.updated_at);
           const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(now.getDate() - 30); // วันที่ 30 วันที่แล้ว
-          return fileDate >= thirtyDaysAgo; // กรองภาพในช่วง 30 วันที่ผ่านมา
+          thirtyDaysAgo.setDate(now.getDate() - 30); // คำนวณวัน 30 วันที่แล้ว
+          return fileDate >= thirtyDaysAgo;
         });
         break;
 
-      case 'thisYear':
+      case 'thisYear': // กรองภาพในปีนี้
         filtered = images.filter((image) => {
           const fileDate = new Date(image.created_at || image.updated_at);
-          return fileDate.getFullYear() === now.getFullYear(); // กรองภาพที่สร้างในปีนี้
+          return fileDate.getFullYear() === now.getFullYear();
         });
         break;
 
-      case 'lastYear':
+      case 'lastYear': // กรองภาพในปีที่แล้ว
         filtered = images.filter((image) => {
           const fileDate = new Date(image.created_at || image.updated_at);
-          return fileDate.getFullYear() === now.getFullYear() - 1; // กรองภาพที่สร้างในปีที่แล้ว
+          return fileDate.getFullYear() === now.getFullYear() - 1;
         });
         break;
 
-      default:
-        filtered = images; // หากไม่ได้เลือกตัวกรอง ให้แสดงภาพทั้งหมด
+      default: // ถ้าไม่ได้เลือกอะไร กรองทุกภาพ
+        filtered = images;
         break;
     }
 
-    setFilteredImages(filtered); // กำหนดภาพที่ผ่านการกรองแล้ว
+    setFilteredImages(filtered); // ตั้งค่าภาพที่กรองแล้ว
   }
 
   const handleLogout = () => {
-    // ลบข้อมูลผู้ใช้จาก localStorage และ redirect ไปหน้า login
-    localStorage.removeItem('user');
-    router.push('/login');
+    localStorage.removeItem('user'); // ลบข้อมูลผู้ใช้ใน localStorage
+    router.push('/login'); // ไปที่หน้า login
   };
 
   return (
@@ -170,8 +168,8 @@ export default function ImageManagement() {
             id="filter"
             value={filterOption}
             onChange={(e) => {
-              setFilterOption(e.target.value);
-              filterImagesByDate(e.target.value); // เรียกฟังก์ชันกรองภาพ
+              setFilterOption(e.target.value); // อัปเดตตัวเลือกการกรอง
+              filterImagesByDate(e.target.value); // กรองภาพตามตัวเลือก
             }}
             className="border rounded px-4 py-2"
           >
@@ -198,7 +196,7 @@ export default function ImageManagement() {
                 วันที่อัปเดต: {new Date(image.updated_at || image.created_at).toLocaleString()}
               </p>
               <button
-                onClick={() => deleteImage(image.name)}
+                onClick={() => deleteImage(image.name)} // ลบภาพ
                 className="bg-red-500 text-white px-4 py-2 mt-2 rounded"
               >
                 ลบภาพ
