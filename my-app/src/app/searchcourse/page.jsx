@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export default function AccountManagement() {
-  // กำหนด state สำหรับข้อมูลต่างๆ
   const [courses, setCourses] = useState([]); // รายวิชาทั้งหมด
   const [searchTerm, setSearchTerm] = useState(''); // คำค้นหาของผู้ใช้
   const [userName, setUserName] = useState(''); // ชื่อผู้ใช้
@@ -15,14 +14,7 @@ export default function AccountManagement() {
   const [isSearchTriggered, setIsSearchTriggered] = useState(false); // สถานะการค้นหาว่ามีการกดค้นหาหรือไม่
   const router = useRouter();
 
-  // คำนวณปีปัจจุบันและปีพุทธศักราช
-  const currentYear = new Date().getFullYear();
-  const currentBuddhistYear = currentYear + 543;
-  // สร้าง array ปีการศึกษาที่มีทั้งหมด 11 ปี
-  const years = Array.from({ length: 11 }, (_, index) => currentBuddhistYear - 5 + index);
-
   useEffect(() => {
-    // ดึงข้อมูลรายวิชาจากฐานข้อมูล
     fetchCourses();
 
     const user = JSON.parse(localStorage.getItem('user'));
@@ -68,33 +60,32 @@ export default function AccountManagement() {
 
   // ฟังก์ชันสำหรับการค้นหา
   const handleSearch = () => {
-    // ตรวจสอบว่าผู้ใช้กรอกข้อมูลหรือเลือกตัวเลือกก่อนทำการค้นหาหรือไม่
     if (!searchTerm.trim() && !selectedYear && !selectedTerm) {
       setErrorMessage('กรุณากรอกข้อมูลหรือเลือกตัวเลือกก่อนทำการค้นหา');
-      setIsSearchTriggered(false); // ไม่ทำการค้นหาหากไม่มีการกรอกข้อมูล
+      setIsSearchTriggered(false);
       return;
     }
-    setErrorMessage(''); // ล้างข้อความแสดงข้อผิดพลาด
-    setIsSearchTriggered(true); // ทำการค้นหา
+    setErrorMessage('');
+    setIsSearchTriggered(true);
   };
 
-  // ฟังก์ชันสำหรับการเปลี่ยนแปลงคำค้นหา
   const handleSearchTermChange = (e) => {
     setSearchTerm(e.target.value);
-    setIsSearchTriggered(false); // ไม่ทำการค้นหาทันทีเมื่อเปลี่ยนคำค้นหา
+    setIsSearchTriggered(false);
   };
 
-  // ฟังก์ชันสำหรับการเปลี่ยนแปลงปีการศึกษา
   const handleYearChange = (e) => {
-    setSelectedYear(e.target.value ? Number(e.target.value) : ''); // แปลงค่าเป็นตัวเลขหากมีการเลือกปี
-    setIsSearchTriggered(false); // ไม่ทำการค้นหาทันทีเมื่อเปลี่ยนปี
+    setSelectedYear(e.target.value ? Number(e.target.value) : '');
+    setIsSearchTriggered(false);
   };
 
-  // ฟังก์ชันสำหรับการเปลี่ยนแปลงภาคเรียน
   const handleTermChange = (e) => {
     setSelectedTerm(e.target.value);
-    setIsSearchTriggered(false); // ไม่ทำการค้นหาทันทีเมื่อเปลี่ยนภาคเรียน
+    setIsSearchTriggered(false);
   };
+
+  // ดึงค่าปีการศึกษาเฉพาะที่มีอยู่ในฐานข้อมูล
+  const uniqueYears = Array.from(new Set(courses.map(course => course.year)));
 
   // การกรองรายวิชาตามคำค้นหา, ปีการศึกษา, และภาคเรียน
   const filteredCourses = isSearchTriggered
@@ -148,7 +139,7 @@ export default function AccountManagement() {
             className="border rounded-lg px-4 py-2"
           >
             <option value="">เลือกปีการศึกษา</option>
-            {years.map((year, index) => (
+            {uniqueYears.map((year, index) => (
               <option key={index} value={year}>{year}</option>
             ))}
           </select>
