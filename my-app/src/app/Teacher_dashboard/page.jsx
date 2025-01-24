@@ -10,6 +10,8 @@ export default function TeacherPage() {
   const [compareType, setCompareType] = useState('same'); // default is same subject
   const [userName, setUserName] = useState('');
   const [courses, setCourses] = useState([]); // สตอร์คอร์สที่ได้จากฐานข้อมูล
+  const [emotionData, setEmotionData] = useState([]); // สำหรับเก็บข้อมูลผลการวิเคราะห์อารมณ์
+  const [isAnalyzing, setIsAnalyzing] = useState(false); // สถานะการวิเคราะห์
   const router = useRouter(); // Hook for navigation
 
   useEffect(() => {
@@ -19,6 +21,7 @@ export default function TeacherPage() {
       if (user.role === 'teacher') {
         setUserName(user.name);
         fetchCourses(user.user_id);
+        fetchEmotionData(); // ดึงข้อมูลผลการวิเคราะห์อารมณ์ทั้งหมด
       } else if (user.role === 'student') {
         setUserName(user.name);
       } else {
@@ -42,9 +45,29 @@ export default function TeacherPage() {
     }
   };
 
+  const fetchEmotionData = async () => {
+    const { data, error } = await supabase
+      .from('emotion_detection')
+      .select('id, detection_time, num_faces, emotion, count, percentage'); // ลบเงื่อนไข .eq('user_id', userId)
+
+    if (error) {
+      console.error('Error fetching emotion data:', error);
+    } else {
+      setEmotionData(data); // เก็บข้อมูลลงใน state
+    }
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  const startAnalysis = () => {
+    setIsAnalyzing(true); // เริ่มการวิเคราะห์
+  };
+
+  const stopAnalysis = () => {
+    setIsAnalyzing(false); // หยุดการวิเคราะห์
   };
 
   return (
@@ -61,6 +84,12 @@ export default function TeacherPage() {
             className={`w-full block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 active:bg-sky-700 focus:outline-none rounded-lg ${selectedAction === 'analyze' ? 'bg-sky-500' : ''}`}
           >
             วิเคราะห์ใบหน้า
+          </button>
+          <button
+            onClick={() => setSelectedAction('results')}
+            className={`w-full block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 active:bg-sky-700 focus:outline-none rounded-lg ${selectedAction === 'results' ? 'bg-sky-500' : ''}`}
+          >
+            ผลวิเคราะห์
           </button>
           <button
             onClick={() => setSelectedAction('compare')}
@@ -90,25 +119,73 @@ export default function TeacherPage() {
             ? 'วิเคราะห์ใบหน้า'
             : selectedAction === 'compare'
             ? 'เปรียบเทียบผลวิเคราะห์'
-            : 'เลือกการดำเนินการ'}
+            : 'ผลวิเคราะห์'}
         </h2>
+        {selectedAction === '' && (
+  <p className="text-gray-500">กรุณาเลือกการดำเนินการจากแถบด้านซ้าย</p>
+)}
+
+        {/* แสดงผลวิเคราะห์ */}
+        {selectedAction === 'results' && (
+          <div>
+            <div className="overflow-x-auto">
+              <table className="table-auto w-full border-collapse">
+                <thead className="bg-gray-200">
+                  <tr>
+                    <th className="border px-4 py-2">ลำดับ</th>
+                    <th className="border px-4 py-2">เวลาการตรวจจับ</th>
+                    <th className="border px-4 py-2">จำนวนใบหน้า</th>
+                    <th className="border px-4 py-2">อารมณ์</th>
+                    <th className="border px-4 py-2">จำนวน</th>
+                    <th className="border px-4 py-2">เปอร์เซ็นต์</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emotionData.length > 0 ? (
+                    emotionData.map((item, index) => (
+                      <tr key={item.id} className="border-b">
+                        <td className="border px-4 py-2">{index + 1}</td>
+                        <td className="border px-4 py-2">{item.detection_time}</td>
+                        <td className="border px-4 py-2">{item.num_faces}</td>
+                        <td className="border px-4 py-2">{item.emotion}</td>
+                        <td className="border px-4 py-2">{item.count}</td>
+                        <td className="border px-4 py-2">{item.percentage}%</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="text-center border px-4 py-2">ไม่พบข้อมูลการวิเคราะห์อารมณ์</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* การเลือกวิชา */}
-        <div>
-          <h3 className="text-xl mb-2">เลือกวิชาที่จะดำเนินการ</h3>
-          <select
-            className="p-2 border border-gray-300 rounded-md mb-4"
-            value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
-          >
-            <option value="">เลือกวิชา</option>
-            {courses.map((course) => (
-              <option key={course.namecourses} value={course.namecourses}>
-                {course.namecourses}
-              </option>
-            ))}
-          </select>
-        </div>
+        {selectedAction && selectedAction !== 'results' && (
+          <div>
+            <h3 className="text-xl mb-2">เลือกวิชาที่จะดำเนินการ</h3>
+            <div className="flex space-x-4 mb-4">
+              {courses.map((course) => (
+                <button
+                  key={course.namecourses}
+                  onClick={() => {
+                    if (!isAnalyzing) {
+                      setSelectedCourse(course.namecourses);
+                    }
+                  }}
+                  className={`py-2 px-4 rounded-md ${selectedCourse === course.namecourses ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+                  disabled={isAnalyzing} // Disable selection during analysis
+                  style={{ cursor: isAnalyzing ? 'not-allowed' : 'pointer' }}
+                >
+                  {course.namecourses}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* การแสดงผลตามการเลือกการดำเนินการ */}
         {selectedCourse && selectedAction && (
@@ -117,6 +194,24 @@ export default function TeacherPage() {
               <div>
                 <h3 className="text-xl mb-2">วิเคราะห์ใบหน้าในวิชา {selectedCourse}</h3>
                 <p>กำลังดำเนินการวิเคราะห์ใบหน้า...</p>
+
+                {!isAnalyzing ? (
+                  <button
+                    onClick={startAnalysis}
+                    className="py-2.5 px-4 bg-green-500 text-white rounded-md"
+                  >
+                    เริ่มการวิเคราะห์
+                  </button>
+                ) : (
+                  <div>
+                    <button
+                      onClick={stopAnalysis}
+                      className="py-2.5 px-4 bg-red-500 text-white rounded-md"
+                    >
+                      สิ้นสุดการวิเคราะห์
+                    </button>
+                  </div>
+                )}
               </div>
             ) : selectedAction === 'compare' ? (
               <div>
@@ -144,32 +239,28 @@ export default function TeacherPage() {
                 ) : (
                   <div>
                     <h4>เปรียบเทียบผลการวิเคราะห์ในวิชาต่างกัน</h4>
-                    <select
-                      className="p-2 border border-gray-300 rounded-md mb-4"
-                      value={compareCourse}
-                      onChange={(e) => setCompareCourse(e.target.value)}
-                    >
-                      <option value="">เลือกวิชาเปรียบเทียบ</option>
+                    <div className="flex space-x-4 mb-4">
                       {courses
                         .filter((course) => course.namecourses !== selectedCourse)
                         .map((course) => (
-                          <option key={course.namecourses} value={course.namecourses}>
+                          <button
+                            key={course.namecourses}
+                            onClick={() => setCompareCourse(course.namecourses)}
+                            className={`py-2 px-4 rounded-md ${compareCourse === course.namecourses ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
+                          >
                             {course.namecourses}
-                          </option>
+                          </button>
                         ))}
-                    </select>
-                    <p>กำลังเปรียบเทียบผลการวิเคราะห์ระหว่างวิชา {selectedCourse} และวิชา {compareCourse}</p>
+                    </div>
+                    {compareCourse && (
+                      <p>กำลังเปรียบเทียบผลการวิเคราะห์ระหว่างวิชา {selectedCourse} และวิชา {compareCourse}</p>
+                    )}
                   </div>
                 )}
               </div>
-            ) : (
-              <p className="text-gray-500">กรุณาเลือกการดำเนินการจากแถบด้านซ้าย</p>
-            )}
+            ) : null}
           </div>
         )}
-
-        {/* แสดงผลเมื่อยังไม่เลือกวิชา */}
-        {selectedCourse === '' && <p className="text-gray-500">กรุณาเลือกวิชาก่อนที่จะดำเนินการ</p>}
       </div>
     </div>
   );
