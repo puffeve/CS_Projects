@@ -148,7 +148,10 @@ export default function TeacherPage() {
   };
 
   const toggleHidden = () => setIsHidden(!isHidden);
-  const startAnalysis = () => setSelectedAction('วิเคราะห์ใบหน้า');
+  const startAnalysis = () => {
+    setSelectedAction('วิเคราะห์ใบหน้า');
+    router.push('/analyze_face'); // นำทางไปยังหน้า analyze_face
+  };
   const viewAnalysis = () => setSelectedAction('ผลวิเคราะห์');
   const compareAnalysis = () => setSelectedAction('เปรียบเทียบผลวิเคราะห์');
 
@@ -209,6 +212,7 @@ export default function TeacherPage() {
               >
                 {isHidden ? 'แสดงวิชาปีการศึกษาเก่า' : 'ซ่อนวิชาปีการศึกษาเก่า'}
               </button>
+
 
               {!isHidden && previousYearCourses.length > 0 && (
                 <div className="col-span-5">
@@ -334,7 +338,7 @@ export default function TeacherPage() {
             {/* ป๊อปอัพกราฟ */}
             {isGraphPopupVisible && (
               <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-700 bg-opacity-50 flex justify-center items-center z-50">
-                <div className="bg-white p-8 rounded-lg shadow-xl max-w-4xl  w-full relative">
+                <div className="bg-white p-8 rounded-lg shadow-xl max-w-2xl  w-full relative">
                   <button
                     onClick={toggleGraphPopup}
                     className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full"
