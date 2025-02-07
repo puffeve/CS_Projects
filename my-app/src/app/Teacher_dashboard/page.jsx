@@ -1,27 +1,28 @@
-'use client';
+'use client'; 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Line } from 'react-chartjs-2'; // สำหรับกราฟ
-import { Chart as ChartJS, LineElement, CategoryScale, LinearScale, PointElement, Legend } from 'chart.js';
+import { Pie } from 'react-chartjs-2'; // เปลี่ยนเป็นกราฟพาย
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 
-ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function TeacherPage() {
   const [selectedAction, setSelectedAction] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState('');
-  const [compareCourse, setCompareCourse] = useState('');
+  const [selectedCourse, setSelectedCourse] = useState(''); // วิชาที่เลือก
   const [userName, setUserName] = useState('');
   const [courses, setCourses] = useState([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isCoursePage, setIsCoursePage] = useState(true);
   const [emotionTimestamps, setEmotionTimestamps] = useState([]);
   const [selectedTimestamp, setSelectedTimestamp] = useState(null);
+  const [graphData, setGraphData] = useState(null);
+  const [loadingGraph, setLoadingGraph] = useState(false);
+  const [isGraphPopupVisible, setIsGraphPopupVisible] = useState(false); // สถานะการแสดงกราฟป๊อปอัพ
   const [currentYearCourses, setCurrentYearCourses] = useState([]);
   const [previousYearCourses, setPreviousYearCourses] = useState([]);
   const [isHidden, setIsHidden] = useState(false);
-  const [graphData, setGraphData] = useState(null);
-  const [loadingGraph, setLoadingGraph] = useState(false);
+  const [compareAcrossCourses, setCompareAcrossCourses] = useState(false); // สำหรับการเลือกเปรียบเทียบข้ามวิชา
+  const [otherCourses, setOtherCourses] = useState([]); // สำหรับเก็บวิชาที่เลือกข้ามวิชา
   const router = useRouter();
 
   useEffect(() => {
@@ -107,16 +108,15 @@ export default function TeacherPage() {
         return {
           label: emotion,
           data: emotionData.map((item) => item.percentage),
-          borderColor: getColorForEmotion(emotion),
-          backgroundColor: 'rgba(0, 0, 0, 0)',
-          tension: 0.4,
-          fill: false,
         };
       });
 
       const chartData = {
-        labels: [timestamp],
-        datasets,
+        labels: labels,
+        datasets: [{
+          data: datasets.map((item) => item.data.reduce((a, b) => a + b, 0)),
+          backgroundColor: ['rgba(0, 0, 128, 1)', 'rgba(128, 0, 128, 1)', 'rgba(255, 99, 132, 1)', 'rgba(128, 0, 128, 1)'],
+        }],
       };
 
       setGraphData(chartData);
@@ -124,21 +124,6 @@ export default function TeacherPage() {
       console.error('Error processing graph data:', err);
     } finally {
       setLoadingGraph(false);
-    }
-  };
-
-  const getColorForEmotion = (emotion) => {
-    switch (emotion) {
-      case 'happy':
-        return 'rgba(75, 192, 192, 1)';
-      case 'sad':
-        return 'rgba(54, 162, 235, 1)';
-      case 'angry':
-        return 'rgba(255, 99, 132, 1)';
-      case 'neutral':
-        return 'rgba(153, 102, 255, 1)';
-      default:
-        return 'rgba(201, 203, 207, 1)';
     }
   };
 
@@ -155,15 +140,29 @@ export default function TeacherPage() {
 
   const handleBackClick = () => {
     setIsCoursePage(true);
-    setSelectedCourse('');
+    setSelectedCourse(''); // รีเซ็ตวิชาเมื่อกลับ
     setSelectedAction('');
     setSelectedTimestamp(null);
+    setCompareAcrossCourses(false); // รีเซ็ตสถานะเมื่อกลับ
+    setOtherCourses([]); // ลบวิชาที่เลือกข้ามวิชา
   };
 
   const toggleHidden = () => setIsHidden(!isHidden);
   const startAnalysis = () => setSelectedAction('วิเคราะห์ใบหน้า');
   const viewAnalysis = () => setSelectedAction('ผลวิเคราะห์');
   const compareAnalysis = () => setSelectedAction('เปรียบเทียบผลวิเคราะห์');
+
+  const toggleGraphPopup = () => {
+    setIsGraphPopupVisible(!isGraphPopupVisible); // เปิด/ปิด ป๊อปอัพกราฟ
+  };
+
+  const handleComparisonTypeChange = (type) => {
+    if (type === 'sameCourse') {
+      setCompareAcrossCourses(false);
+    } else if (type === 'acrossCourses') {
+      setCompareAcrossCourses(true);
+    }
+  };
 
   return (
     <div className="flex h-screen">
@@ -268,47 +267,87 @@ export default function TeacherPage() {
             </div>
             <h3 className="text-xl mb-4">ตอนนี้เลือก: {selectedAction}</h3>
 
+
+            {selectedAction === 'เปรียบเทียบผลวิเคราะห์' && (
+              <>
+                <h3 className="text-lg mb-4">เลือกประเภทการเปรียบเทียบ</h3>
+                <button
+                  onClick={() => handleComparisonTypeChange('sameCourse')}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg mr-4"
+                >
+                  เปรียบเทียบในรายวิชาเดียวกัน
+                </button>
+                
+              
+        
+                
+                <button
+                  onClick={() => handleComparisonTypeChange('acrossCourses')}
+                  className="bg-orange-500 text-white px-4 py-2 rounded-lg"
+                >
+                  เปรียบเทียบในคนละรายวิชา
+                </button>
+
+                {compareAcrossCourses && (
+                  <div className="mt-4">
+                    <h3 className="text-lg mb-4">เลือกวิชาที่จะเปรียบเทียบ</h3>
+                    <div className="grid grid-cols-5 gap-4">
+                      {courses.filter(course => course.courses_id !== selectedCourse.courses_id).map((course) => (
+                        <button
+                          key={course.courses_id}
+                          onClick={() => setOtherCourses(course.courses_id)}
+                          className="bg-white p-4 rounded-lg shadow text-left hover:bg-gray-100"
+                        >
+                          <p>รหัสวิชา: {course.courses_id}</p>
+                          <p>ชื่อวิชา: {course.namecourses}</p>
+                          <p>ภาคเรียน: {course.term}</p>
+                          <p>ปีการศึกษา: {course.year}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            {/* ส่วนแสดงการวิเคราะห์และกราฟ */}
             {selectedAction === 'ผลวิเคราะห์' && (
               <div>
-                <h3 className="text-xl mb-4">เลือกรายการเวลา</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {emotionTimestamps.map((item, index) => (
+                <h3 className="text-lg mb-4">เลือกเวลาที่ต้องการดูการวิเคราะห์</h3>
+                <div className="grid grid-cols-5 gap-4">
+                  {emotionTimestamps.map((timestamp) => (
                     <button
-                      key={index}
-                      className={`p-4 rounded-lg shadow text-left ${
-                        selectedTimestamp === item.timestamp
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200'
-                      }`}
-                      onClick={() => fetchGraphData(item.timestamp)}
+                      key={timestamp.timestamp}
+                      className="bg-white p-4 rounded-lg shadow text-left hover:bg-gray-100"
+                      onClick={() => {
+                        fetchGraphData(timestamp.timestamp);
+                        toggleGraphPopup(); // เปิดป๊อปอัพเมื่อเลือกเวลา
+                      }}
                     >
-                      {item.timestamp} ({item.count})
+                      <p>วัน/เวลาที่เลือก: {timestamp.timestamp}</p>
+  
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
 
-                {loadingGraph ? (
-                  <p>Loading graph...</p>
-                ) : (
-                  graphData && (
-                    <div className="mt-6 w-full max-w-4xl mx-auto">
-                      <Line 
-                        data={graphData} 
-                        options={{
-                          plugins: {
-                            legend: {
-                              position: 'right',  // Display the legend to the right of the graph
-                              labels: {
-                                boxWidth: 10,  // Adjust the box size for each legend item
-                                padding: 20     // Add space between the legend and the graph
-                              }
-                            }
-                          }
-                        }} 
-                      />
+            {/* ป๊อปอัพกราฟ */}
+            {isGraphPopupVisible && (
+              <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-700 bg-opacity-50 flex justify-center items-center z-50">
+                <div className="bg-white p-8 rounded-lg shadow-xl max-w-4xl  w-full relative">
+                  <button
+                    onClick={toggleGraphPopup}
+                    className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full"
+                  >
+                    ปิด
+                  </button>
+                  <h3 className="text-xl font-bold mb-4">กราฟการวิเคราะห์อารมณ์</h3>
+                  {graphData && !loadingGraph && (
+                    <div>
+                      <Pie data={graphData} options={{ responsive: true }} />
                     </div>
-                  )
-                )}
+                  )}
+                </div>
               </div>
             )}
           </>
