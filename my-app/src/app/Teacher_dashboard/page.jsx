@@ -1,18 +1,18 @@
-'use client'; 
+// TeacherPage.jsx
+'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-
 export default function TeacherPage() {
-  const [selectedCourse, setSelectedCourse] = useState(''); // วิชาที่เลือก
+  const [selectedCourse, setSelectedCourse] = useState('');
   const [userName, setUserName] = useState('');
   const [courses, setCourses] = useState([]);
   const [isCoursePage, setIsCoursePage] = useState(true);
   const [currentYearCourses, setCurrentYearCourses] = useState([]);
   const [previousYearCourses, setPreviousYearCourses] = useState([]);
   const [isHidden, setIsHidden] = useState(false);
-  const [otherCourses, setOtherCourses] = useState([]); // สำหรับเก็บวิชาที่เลือกข้ามวิชา
+  const [otherCourses, setOtherCourses] = useState([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -30,8 +30,6 @@ export default function TeacherPage() {
       router.push('/login');
     }
   }, []);
-  
-
 
   const fetchCourses = async (userId) => {
     const { data, error } = await supabase
@@ -52,59 +50,50 @@ export default function TeacherPage() {
     }
   };
 
-
   const handleSignOut = async () => {
+    localStorage.removeItem('selectedCourse'); // Clear selected course
     await supabase.auth.signOut();
     router.push('/login');
   };
 
   const handleCourseClick = (course) => {
     setSelectedCourse(course);
-    localStorage.setItem("selectedCourse", JSON.stringify(course)); // บันทึกลง LocalStorage
+    localStorage.setItem("selectedCourse", JSON.stringify({
+      courses_id: course.courses_id,
+      namecourses: course.namecourses,
+      term: course.term,
+      year: course.year
+    }));
     setIsCoursePage(false);
   };
-  
 
   const handleBackClick = () => {
+    localStorage.removeItem('selectedCourse'); // Clear selected course
     setIsCoursePage(true);
-    setSelectedCourse(''); // รีเซ็ตวิชาเมื่อกลับ
-    setOtherCourses([]); // ลบวิชาที่เลือกข้ามวิชา
+    setSelectedCourse('');
+    setOtherCourses([]);
   };
 
-  const toggleHidden = () => setIsHidden(!isHidden);  // ของภีม
-  const startAnalysis = () => {
-    setSelectedAction('วิเคราะห์ใบหน้า');
-    router.push('/analyze_face'); // นำทางไปยังหน้า analyze_face
-  };
+  const toggleHidden = () => setIsHidden(!isHidden);
 
   return (
     <div className="flex h-screen">
-      {/* แถบเมนูด้านซ้าย */}
       <div className="w-64 bg-sky-200 text-black p-4 relative">
         <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
         {userName && <div className="text-lg font-semibold mb-4">สวัสดี {userName}</div>}
         <hr className="border-[#305065] mb-6" />
-        <div className="absolute bottom-4 left-0 w-full px-4">
-          <button
-            onClick={handleSignOut}
-            className="w-full block py-2.5 px-4 bg-pink-400  active:bg-[#1d2f3f] focus:outline-none text-white rounded-lg"
-          >
-            ออกจากระบบ
-          </button>
-        </div>
-
-        {/* ปุ่มเลือกทำรายการจะถูกซ่อนจนกว่าจะเลือกวิชา */}
+        
         {selectedCourse && (
           <div className="mt-4 flex flex-col items-start space-y-2">
             <button
               onClick={() => router.push('/analyze_face')}
-              className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg mr-4 shadow-md  transition duration-300"
+              className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg mr-4 shadow-md transition duration-300"
             >
               วิเคราะห์ใบหน้า
             </button>
             <button
               onClick={() => {
-                localStorage.setItem("userName", userName); // บันทึก userName
+                localStorage.setItem("userName", userName);
                 router.push("/result");
               }}
               className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg mr-4 shadow-md transition duration-300"
@@ -113,7 +102,7 @@ export default function TeacherPage() {
             </button>
             <button
               onClick={() => router.push('/compare_result')}
-              className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg mr-4 shadow-md  transition duration-300"
+              className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg mr-4 shadow-md transition duration-300"
             >
               เปรียบเทียบผลวิเคราะห์
             </button>
@@ -125,9 +114,17 @@ export default function TeacherPage() {
             </button>
           </div>
         )}
+
+        <div className="absolute bottom-4 left-0 w-full px-4">
+          <button
+            onClick={handleSignOut}
+            className="w-full block py-2.5 px-4 bg-pink-400 active:bg-[#1d2f3f] focus:outline-none text-white rounded-lg"
+          >
+            ออกจากระบบ
+          </button>
+        </div>
       </div>
 
-      {/* เนื้อหาหลัก */}
       <div className="flex-1 p-8">
         {isCoursePage ? (
           <>
@@ -184,10 +181,9 @@ export default function TeacherPage() {
             <h2 className="text-2xl font-bold mb-4">
               ตอนนี้อยู่ในวิชา {selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})
             </h2>
-            <p className="text-lg" >
+            <p className="text-lg">
               ภาคเรียน: {selectedCourse.term} | ปีการศึกษา: {selectedCourse.year}
             </p>
-
             <p className="text-2xl font-semibold text-center mt-8">โปรดเลือกรายการทำรายการจากแถบเมนูด้านซ้าย</p>
           </>
         )}
