@@ -1,9 +1,11 @@
 // FaceAnalysisPage.jsx
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
 
-const FaceAnalysisPage = ({ onNavigateBack }) => {
+const FaceAnalysisPage = () => {
+  const router = useRouter();
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [status, setStatus] = useState("กำลังเชื่อมต่อ...");
   const [emotionData, setEmotionData] = useState([]);
@@ -12,7 +14,66 @@ const FaceAnalysisPage = ({ onNavigateBack }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
-  let stream = null;
+  const streamRef = useRef(null);
+  const countdownTimerRef = useRef(null);
+
+  // Comprehensive cleanup function
+  const cleanupResources = useCallback(() => {
+    try {
+      // Stop countdown timer
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+
+      // Stop camera stream
+      if (streamRef.current) {
+        const tracks = streamRef.current.getTracks();
+        tracks.forEach((track) => {
+          try {
+            track.stop();
+          } catch (error) {
+            console.error('Error stopping camera track:', error);
+          }
+        });
+        streamRef.current = null;
+      }
+
+      // Close WebSocket connection
+      if (wsRef.current) {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.close();
+        }
+        wsRef.current = null;
+      }
+
+      // Reset component state
+      setEmotionData([]);
+      setStatus("กำลังเชื่อมต่อ...");
+      setShowCountdown(true);
+      setCountdown(5);
+
+      // Optional: Clear video and canvas
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      if (canvasRef.current) {
+        const context = canvasRef.current.getContext('2d');
+        context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    } catch (error) {
+      console.error('Comprehensive cleanup error:', error);
+    }
+  }, []);
+
+  // Handle back navigation with complete cleanup and routing
+  const handleBack = useCallback(() => {
+    // Perform comprehensive cleanup
+    cleanupResources();
+    
+    // Navigate back to Teacher Dashboard
+    router.push('/Teacher_dashboard');
+  }, [cleanupResources, router]);
 
   useEffect(() => {
     // Load course data from localStorage
@@ -25,39 +86,36 @@ const FaceAnalysisPage = ({ onNavigateBack }) => {
 
     loadCourseData();
 
-    const countdownTimer = setInterval(() => {
+    // Countdown timer with enhanced tracking
+    countdownTimerRef.current = setInterval(() => {
       setCountdown((prevCountdown) => {
         if (prevCountdown === 1) {
-          clearInterval(countdownTimer);
+          clearInterval(countdownTimerRef.current);
           setShowCountdown(false);
           openCamera();
           connectWebSocket();
-          return "กำลังเริ่ม...";
+          return 0;
         }
         return prevCountdown - 1;
       });
     }, 1000);
 
+    // Cleanup function
     return () => {
-      clearInterval(countdownTimer);
-      if (stream) {
-        const tracks = stream.getTracks();
-        tracks.forEach((track) => track.stop());
-      }
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.close();
-      }
+      cleanupResources();
     };
-  }, []);
+  }, [cleanupResources]);
 
   const openCamera = async () => {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      const cameraStream = await navigator.mediaDevices.getUserMedia({
         video: true,
       });
 
+      streamRef.current = cameraStream;
+
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = cameraStream;
       }
     } catch (err) {
       console.error("Error accessing camera: ", err);
@@ -147,19 +205,6 @@ const FaceAnalysisPage = ({ onNavigateBack }) => {
     return colors[emotion] || "bg-gray-400";
   };
 
-  const handleBack = () => {
-    if (stream) {
-      const tracks = stream.getTracks();
-      tracks.forEach((track) => track.stop());
-    }
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-    if (onNavigateBack) {
-      onNavigateBack();
-    }
-  };
-
   const getCourseDisplay = () => {
     if (!selectedCourse) return "ไม่มีรายวิชาที่เลือก";
     return `${selectedCourse.namecourses} (${selectedCourse.courses_id}) - ภาคเรียนที่ ${selectedCourse.term}/${selectedCourse.year}`;
@@ -181,7 +226,7 @@ const FaceAnalysisPage = ({ onNavigateBack }) => {
         <div className="max-w-6xl mx-auto">
           {showCountdown ? (
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-              <div className="text-white text-9xl font-bold">{countdown}</div>
+              <div className="text-white text-9xl font-bold">{countdown || "เริ่ม"}</div>
             </div>
           ) : null}
           
