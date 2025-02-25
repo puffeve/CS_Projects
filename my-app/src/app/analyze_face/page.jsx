@@ -1,6 +1,5 @@
-// FaceAnalysisPage.jsx
 "use client";
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
 
@@ -11,103 +10,213 @@ const FaceAnalysisPage = () => {
   const [emotionData, setEmotionData] = useState([]);
   const [countdown, setCountdown] = useState(5);
   const [showCountdown, setShowCountdown] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const streamRef = useRef(null);
   const countdownTimerRef = useRef(null);
-
-  // Comprehensive cleanup function
-  const cleanupResources = useCallback(() => {
-    try {
-      // Stop countdown timer
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-        countdownTimerRef.current = null;
-      }
-
-      // Stop camera stream
-      if (streamRef.current) {
-        const tracks = streamRef.current.getTracks();
-        tracks.forEach((track) => {
-          try {
-            track.stop();
-          } catch (error) {
-            console.error('Error stopping camera track:', error);
-          }
-        });
-        streamRef.current = null;
-      }
-
-      // Close WebSocket connection
-      if (wsRef.current) {
-        if (wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.close();
-        }
-        wsRef.current = null;
-      }
-
-      // Reset component state
-      setEmotionData([]);
-      setStatus("กำลังเชื่อมต่อ...");
-      setShowCountdown(true);
-      setCountdown(5);
-
-      // Optional: Clear video and canvas
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-      if (canvasRef.current) {
-        const context = canvasRef.current.getContext('2d');
-        context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      }
-    } catch (error) {
-      console.error('Comprehensive cleanup error:', error);
-    }
-  }, []);
-
-  // Handle back navigation with complete cleanup and routing
-  const handleBack = useCallback(() => {
-    // Perform comprehensive cleanup
-    cleanupResources();
-    
-    // Navigate back to Teacher Dashboard
-    router.push('/Teacher_dashboard');
-  }, [cleanupResources, router]);
-
+  const courseDataSentRef = useRef(false);
+  
+  // useEffect สำหรับการตั้งค่าเริ่มต้น
   useEffect(() => {
-    // Load course data from localStorage
-    const loadCourseData = () => {
-      const courseData = localStorage.getItem("selectedCourse");
-      if (courseData) {
-        setSelectedCourse(JSON.parse(courseData));
-      }
-    };
-
-    loadCourseData();
-
-    // Countdown timer with enhanced tracking
+    console.log("กำลังเริ่มต้นคอมโพเนนต์ FaceAnalysisPage");
+    
+    // ตั้งค่าตัวนับเวลาถอยหลัง
     countdownTimerRef.current = setInterval(() => {
       setCountdown((prevCountdown) => {
-        if (prevCountdown === 1) {
+        if (prevCountdown <= 1) {
           clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
           setShowCountdown(false);
-          openCamera();
-          connectWebSocket();
+          
+          // เปิดกล้องและเริ่มการวิเคราะห์
+          startAnalysis();
           return 0;
         }
         return prevCountdown - 1;
       });
     }, 1000);
 
-    // Cleanup function
+    // ทำความสะอาดเมื่อคอมโพเนนต์ถูกยกเลิกการติดตั้ง
     return () => {
+      console.log("กำลังทำความสะอาดทรัพยากร");
       cleanupResources();
     };
-  }, [cleanupResources]);
+  }, []);
 
+  // ฟังก์ชันเริ่มการวิเคราะห์
+  const startAnalysis = async () => {
+    try {
+      // โหลดข้อมูลรายวิชาจาก localStorage
+      await loadCourseData();
+      
+      // เปิดกล้อง
+      await openCamera();
+      
+      // ส่งข้อมูลรายวิชาก่อนเชื่อมต่อกับการตรวจจับอารมณ์
+      // ใช้ HTTP request แทน WebSocket
+      await sendCourseDataViaHttp();
+    } catch (error) {
+      console.error("เกิดข้อผิดพลาดในการเริ่มการวิเคราะห์:", error);
+      setStatus("เกิดข้อผิดพลาด: " + error.message);
+    }
+  };
+
+  // โหลดข้อมูลรายวิชาจาก localStorage
+  const loadCourseData = async () => {
+    try {
+      const courseData = localStorage.getItem("selectedCourse");
+      console.log("ข้อมูลรายวิชาดิบจาก localStorage:", courseData);
+      
+      if (!courseData) {
+        console.warn("ไม่พบข้อมูลรายวิชาใน localStorage");
+        return;
+      }
+      
+      const parsedData = JSON.parse(courseData);
+      console.log("ข้อมูลรายวิชาที่แยกวิเคราะห์แล้ว:", parsedData);
+      
+      // ตรวจสอบความถูกต้อง
+      if (!parsedData || !parsedData.courses_id || !parsedData.namecourses) {
+        console.warn("ข้อมูลรายวิชาไม่ถูกต้องหรือไม่สมบูรณ์");
+        return;
+      }
+      
+      setSelectedCourse(parsedData);
+      console.log("ตั้งค่าข้อมูลรายวิชาสำเร็จ:", parsedData);
+    } catch (error) {
+      console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลรายวิชา:", error);
+    }
+  };
+
+  // ฟังก์ชันส่งข้อมูลรายวิชาผ่าน HTTP
+  const sendCourseDataViaHttp = async () => {
+    try {
+      // โหลดข้อมูลรายวิชาจาก localStorage โดยตรง
+      const courseDataStr = localStorage.getItem("selectedCourse");
+      if (!courseDataStr) {
+        console.log("ไม่พบข้อมูลรายวิชาใน localStorage ข้ามการส่งข้อมูลรายวิชา");
+        connectWebSocket(); // เชื่อมต่อ WebSocket โดยตรง
+        return;
+      }
+
+      const courseData = JSON.parse(courseDataStr);
+      console.log("ข้อมูลรายวิชาจาก localStorage:", courseData);
+
+      if (!courseData || !courseData.courses_id || !courseData.namecourses) {
+        console.warn("ข้อมูลรายวิชาไม่ถูกต้องหรือไม่ครบถ้วน");
+        connectWebSocket();
+        return;
+      }
+
+      // เตรียมข้อมูลสำหรับส่ง
+      const dataToSend = {
+        courses_id: String(courseData.courses_id),
+        namecourses: String(courseData.namecourses),
+        term: courseData.term ? String(courseData.term) : "1",
+        year: courseData.year ? String(courseData.year) : "2568"
+      };
+
+      console.log("กำลังส่งข้อมูลรายวิชาไปยัง backend:", dataToSend);
+
+      // ส่งข้อมูลไปยัง backend ผ่าน HTTP
+      const response = await fetch("http://localhost:8000/set-course-data", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(dataToSend),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("ผลลัพธ์การส่งข้อมูลรายวิชา:", result);
+      
+      // บันทึกว่าได้ส่งข้อมูลรายวิชาไปแล้ว
+      courseDataSentRef.current = true;
+      
+      // เริ่มการเชื่อมต่อ WebSocket ตรวจจับอารมณ์
+      connectWebSocket();
+    } catch (error) {
+      console.error("เกิดข้อผิดพลาดในการส่งข้อมูลรายวิชาผ่าน HTTP:", error);
+      
+      // พยายามเชื่อมต่อ WebSocket อยู่ดี แม้จะมีข้อผิดพลาด
+      connectWebSocket();
+    }
+  };
+
+  // ฟังก์ชันทำความสะอาดทรัพยากร
+  const cleanupResources = () => {
+    console.log("กำลังทำความสะอาดทรัพยากร...");
+    
+    // หยุดตัวนับเวลาถอยหลัง
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+
+    // หยุดกระแสกล้อง
+    if (streamRef.current) {
+      const tracks = streamRef.current.getTracks();
+      tracks.forEach((track) => {
+        try {
+          track.stop();
+        } catch (error) {
+          console.error('Error stopping camera track:', error);
+        }
+      });
+      streamRef.current = null;
+    }
+
+    // ปิดการเชื่อมต่อ WebSocket
+    if (wsRef.current) {
+      console.log("กำลังปิดการเชื่อมต่อ WebSocket...");
+      try {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.close(1000, "ปิดการเชื่อมต่อปกติ");
+        }
+      } catch (error) {
+        console.error('WebSocket cleanup error:', error);
+      }
+      wsRef.current = null;
+    }
+
+    // ล้าง video และ canvas
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    if (canvasRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      if (context) {
+        context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }
+
+    // รีเซ็ตสถานะการส่งข้อมูลรายวิชา
+    courseDataSentRef.current = false;
+  };
+
+  // ฟังก์ชันกลับไปยังหน้า dashboard
+  const handleBack = () => {
+    console.log("กำลังกลับไปที่หน้าแดชบอร์ด...");
+    cleanupResources();
+    
+    // ล้างข้อมูลและรีเซ็ตสถานะ
+    setEmotionData([]);
+    setIsAnalyzing(false);
+    
+    router.push('/Teacher_dashboard');
+  };
+
+  // ฟังก์ชันเปิดกล้อง
   const openCamera = async () => {
     try {
+      console.log("กำลังเปิดกล้อง...");
       const cameraStream = await navigator.mediaDevices.getUserMedia({
         video: true,
       });
@@ -120,42 +229,77 @@ const FaceAnalysisPage = () => {
     } catch (err) {
       console.error("Error accessing camera: ", err);
       setStatus("ไม่สามารถเข้าถึงกล้องได้");
+      throw new Error("ไม่สามารถเข้าถึงกล้องได้");
     }
   };
 
+  // ฟังก์ชันเชื่อมต่อ WebSocket
   const connectWebSocket = () => {
-    const ws = new WebSocket("ws://localhost:8000/emotion-detection");
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log("WebSocket connected");
-      setStatus("เชื่อมต่อสำเร็จ");
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.status === "detecting" && data.emotion_data.length > 0) {
-          setEmotionData(data.emotion_data[0].emotions);
-          drawFaceDetection(data.emotion_data, data.frame_size);
-        }
-      } catch (error) {
-        console.error("Error parsing WebSocket message:", error);
-        setStatus("ข้อผิดพลาด: รูปแบบข้อมูลไม่ถูกต้อง");
+    console.log("กำลังเริ่มเชื่อมต่อ WebSocket การตรวจจับอารมณ์...");
+    
+    // ตรวจสอบว่ามีการเชื่อมต่อก่อนหน้าหรือไม่
+    if (wsRef.current) {
+      if (wsRef.current.readyState === WebSocket.OPEN || 
+          wsRef.current.readyState === WebSocket.CONNECTING) {
+        console.log("มีการเชื่อมต่อ WebSocket อยู่แล้ว");
+        return;
       }
-    };
+      
+      try {
+        wsRef.current.close();
+      } catch (error) {
+        console.error("Error closing existing WebSocket:", error);
+      }
+    }
+    
+    // สร้างการเชื่อมต่อใหม่
+    try {
+      const ws = new WebSocket("ws://localhost:8000/emotion-detection");
+      wsRef.current = ws;
 
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setStatus("ข้อผิดพลาด: ไม่สามารถเชื่อมต่อ WebSocket ได้");
-    };
+      ws.onopen = () => {
+        console.log("WebSocket เชื่อมต่อสำเร็จ");
+        setStatus("เชื่อมต่อสำเร็จ");
+        setIsAnalyzing(true);
+      };
 
-    ws.onclose = () => {
-      console.log("WebSocket disconnected");
-      setStatus("การเชื่อมต่อถูกตัด");
-    };
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.status === "detecting" && data.emotion_data.length > 0) {
+            setEmotionData(data.emotion_data[0].emotions);
+            drawFaceDetection(data.emotion_data, data.frame_size);
+          }
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
+          setStatus("ข้อผิดพลาด: รูปแบบข้อมูลไม่ถูกต้อง");
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setStatus("ข้อผิดพลาด: ไม่สามารถเชื่อมต่อ WebSocket ได้");
+      };
+
+      ws.onclose = (event) => {
+        console.log(`WebSocket ถูกปิด: Code: ${event.code}, Reason: ${event.reason}`);
+        setStatus("การเชื่อมต่อถูกตัด");
+        
+        // หากไม่ได้ปิดการเชื่อมต่อโดยตั้งใจและยังอยู่ในโหมดวิเคราะห์ ให้ลองเชื่อมต่อใหม่
+        if (isAnalyzing && event.code !== 1000) {
+          console.log("กำลังลองเชื่อมต่อใหม่...");
+          setTimeout(() => {
+            connectWebSocket();
+          }, 3000);
+        }
+      };
+    } catch (error) {
+      console.error("ไม่สามารถเชื่อมต่อกับ WebSocket ได้:", error);
+      setStatus("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+    }
   };
 
+  // ฟังก์ชันวาดการตรวจจับใบหน้า
   const drawFaceDetection = (emotions, frameSize) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -192,6 +336,7 @@ const FaceAnalysisPage = () => {
     });
   };
 
+  // ฟังก์ชันช่วยสำหรับการแสดงผล
   const getEmotionColor = (emotion) => {
     const colors = {
       Anger: "bg-red-400",
@@ -271,6 +416,7 @@ const FaceAnalysisPage = () => {
                 <video
                   ref={videoRef}
                   autoPlay
+                  playsInline
                   muted
                   className="w-full h-auto object-cover rounded-lg border border-gray-200"
                 />
