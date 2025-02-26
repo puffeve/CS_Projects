@@ -35,8 +35,10 @@ detector = dlib.get_frontal_face_detector()
 emotion_labels = ['Anger', 'Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise', 'Neutral']
 
 # ตัวแปรสำหรับเก็บข้อมูลอารมณ์
-emotion_data = []
+frame_emotion_data = []  # ข้อมูลอารมณ์จากทุกเฟรม
+dominant_emotions_5sec = []  # อารมณ์เด่นทุก 5 วินาที
 last_detection_time = None
+last_5sec_snapshot_time = None
 
 # ตัวแปร global สำหรับเก็บข้อมูลรายวิชา
 current_course_id = None
@@ -141,8 +143,71 @@ async def set_course(websocket: WebSocket):
         print("กำลังปิดการเชื่อมต่อ WebSocket รายวิชา...")
         await websocket.close()
 
-async def summarize_emotion():
-    global emotion_data, current_course_id, current_course_name, current_course_term, current_course_year
+# ฟังก์ชันสำหรับจับอารมณ์เด่นทุก 5 วินาที
+async def capture_dominant_emotion_every_5sec():
+    global frame_emotion_data, dominant_emotions_5sec, last_5sec_snapshot_time
+    
+    while True:
+        await asyncio.sleep(1)  # ตรวจสอบทุกวินาที
+        current_time = datetime.now()
+        
+        # ตรวจสอบว่าถึงเวลาจับภาพทุก 5 วินาทีหรือไม่
+        if (last_5sec_snapshot_time is None or 
+            (current_time - last_5sec_snapshot_time).total_seconds() >= 5):
+            
+            if frame_emotion_data:
+                try:
+                    # รวบรวมอารมณ์ทั้งหมดจากทุกใบหน้าในทุกเฟรมในช่วง 5 วินาทีที่ผ่านมา
+                    all_emotions = []
+                    for frame_data in frame_emotion_data:
+                        for face_data in frame_data:
+                            all_emotions.append(face_data["dominant_emotion"])
+                    
+                    if all_emotions:
+                        # หาอารมณ์ที่พบบ่อยที่สุด
+                        emotion_counter = Counter(all_emotions)
+                        dominant_emotion, count = emotion_counter.most_common(1)[0]
+                        
+                        # คำนวณความน่าจะเป็นเฉลี่ยของอารมณ์เด่น
+                        probabilities = []
+                        for frame_data in frame_emotion_data:
+                            for face_data in frame_data:
+                                if face_data["dominant_emotion"] == dominant_emotion:
+                                    probabilities.append(face_data["emotions"][dominant_emotion])
+                        
+                        avg_probability = sum(probabilities) / len(probabilities) if probabilities else 0
+                        
+                        # นับจำนวนใบหน้าในเฟรมล่าสุดเท่านั้น
+                        latest_frame = frame_emotion_data[-1] if frame_emotion_data else []
+                        latest_num_faces = len(latest_frame)
+                        
+                        # สร้างข้อมูลสรุป
+                        snapshot_data = {
+                            "time": current_time.isoformat(),
+                            "dominant_emotion": dominant_emotion,
+                            "count": count,
+                            "probability": float(avg_probability),
+                            "num_faces": latest_num_faces  # จำนวนใบหน้าในเฟรมล่าสุด
+                        }
+                        
+                        dominant_emotions_5sec.append(snapshot_data)
+                        print(f"จับอารมณ์เด่นทุก 5 วินาที: {dominant_emotion} (ความน่าจะเป็น: {avg_probability:.2f}), จำนวนใบหน้า: {latest_num_faces}")
+                        
+                        # เก็บเฉพาะข้อมูล 6 รอบล่าสุด (30 วินาที)
+                        if len(dominant_emotions_5sec) > 6:
+                            dominant_emotions_5sec = dominant_emotions_5sec[-6:]
+                
+                except Exception as e:
+                    print(f"เกิดข้อผิดพลาดในการจับอารมณ์เด่นทุก 5 วินาที: {e}")
+                    print(traceback.format_exc())
+            
+            # ล้างข้อมูลเฟรมเพื่อเตรียมสำหรับรอบถัดไป
+            frame_emotion_data = []
+            last_5sec_snapshot_time = current_time
+
+# ฟังก์ชันสำหรับสรุปอารมณ์ทุก 30 วินาที
+async def summarize_emotion_every_30sec():
+    global dominant_emotions_5sec, current_course_id, current_course_name, current_course_term, current_course_year
     
     while True:
         await asyncio.sleep(30)  # สรุปทุก 30 วินาที
@@ -152,34 +217,36 @@ async def summarize_emotion():
         print(f"  ชื่อวิชา: {current_course_name}")
         print(f"  เทอม: {current_course_term}")
         print(f"  ปี: {current_course_year}")
-        print(f"  จำนวนข้อมูลอารมณ์: {len(emotion_data)}")
+        print(f"  จำนวนข้อมูลอารมณ์ทุก 5 วินาที: {len(dominant_emotions_5sec)}")
         
-        if emotion_data:
+        if dominant_emotions_5sec:
             try:
-                # ดึงข้อมูลเฟรมล่าสุด
-                latest_frame = emotion_data[-1]
-                detection_time = datetime.now().isoformat()
+                # รวบรวมอารมณ์เด่นจากทุกรอบ 5 วินาที
+                emotions_30sec = [data["dominant_emotion"] for data in dominant_emotions_5sec]
+                counter_30sec = Counter(emotions_30sec)
                 
-                # รวบรวมอารมณ์จากใบหน้าที่ตรวจพบในเฟรมล่าสุด
-                frame_emotions = [data["dominant_emotion"] for data in latest_frame]
-                if frame_emotions:
-                    most_frequent_emotion = Counter(frame_emotions).most_common(1)[0][0]
-                    num_faces = len(frame_emotions)  # จำนวนใบหน้าในเฟรมล่าสุด
+                if counter_30sec:
+                    # หาอารมณ์เด่นในช่วง 30 วินาทีที่ผ่านมา
+                    most_frequent_emotion, count = counter_30sec.most_common(1)[0]
                     
-                    # คำนวณค่าเฉลี่ยความน่าจะเป็นของอารมณ์ที่พบบ่อยที่สุด
+                    # คำนวณค่าเฉลี่ยความน่าจะเป็น
                     probabilities = [
-                        data["emotions"][most_frequent_emotion] 
-                        for data in latest_frame 
-                        if most_frequent_emotion in data["emotions"]
+                        data["probability"] 
+                        for data in dominant_emotions_5sec 
+                        if data["dominant_emotion"] == most_frequent_emotion
                     ]
                     avg_probability = sum(probabilities) / len(probabilities) if probabilities else 0
                     
+                    # ใช้จำนวนใบหน้าจากข้อมูลล่าสุดแทนค่าเฉลี่ย
+                    latest_faces = dominant_emotions_5sec[-1]["num_faces"] if dominant_emotions_5sec else 0
+                    
                     # สร้างข้อมูลพื้นฐานที่จะบันทึก
+                    detection_time = datetime.now().isoformat()
                     insert_data = {
                         "id": str(uuid.uuid4()),
                         "detection_time": detection_time,
-                        "num_faces": num_faces,
-                        "count": num_faces,
+                        "num_faces": latest_faces,  # ใช้จำนวนใบหน้าล่าสุดแทนค่าเฉลี่ย
+                        "count": count,
                         "probability": float(avg_probability),
                         "emotion": most_frequent_emotion
                     }
@@ -215,9 +282,9 @@ async def summarize_emotion():
                         )
                         
                         if course_included:
-                            print(f"บันทึกอารมณ์พร้อมข้อมูลรายวิชาสำเร็จ: {most_frequent_emotion}, วิชา: {inserted_data.get('namecourses')}")
+                            print(f"บันทึกสรุปอารมณ์ 30 วินาทีพร้อมข้อมูลรายวิชาสำเร็จ: {most_frequent_emotion}, วิชา: {inserted_data.get('namecourses')}")
                         else:
-                            print(f"คำเตือน: บันทึกอารมณ์แล้วแต่ข้อมูลรายวิชาอาจหายไป")
+                            print(f"คำเตือน: บันทึกสรุปอารมณ์ 30 วินาทีแล้วแต่ข้อมูลรายวิชาอาจหายไป")
                             
                     except Exception as e:
                         print(f"เกิดข้อผิดพลาดในการใส่ข้อมูลใน Supabase: {e}")
@@ -225,16 +292,17 @@ async def summarize_emotion():
                             print(f"รายละเอียดข้อผิดพลาด: {e.details}")
             
             except Exception as e:
-                print(f"เกิดข้อผิดพลาดในการสรุปข้อมูลอารมณ์: {e}")
+                print(f"เกิดข้อผิดพลาดในการสรุปข้อมูลอารมณ์ 30 วินาที: {e}")
                 print(traceback.format_exc())
             
-            emotion_data.clear()
+            # ไม่ล้างข้อมูล dominant_emotions_5sec เพื่อให้มีการทับซ้อนข้อมูลบางส่วน
+            # แต่จะมีการจำกัดขนาดใน capture_dominant_emotion_every_5sec
 
 @app.websocket("/emotion-detection")
 async def emotion_detection(websocket: WebSocket):
     await websocket.accept()
     cap = cv2.VideoCapture(0)
-    global last_detection_time
+    global frame_emotion_data, last_detection_time
     
     try:
         while True:
@@ -293,10 +361,8 @@ async def emotion_detection(websocket: WebSocket):
                     "detection_time": current_time.isoformat()
                 })
                 
-                # เก็บเฉพาะข้อมูลเฟรมปัจจุบัน
-                emotion_data.append(current_frame_data)
-                if len(emotion_data) > 1:  # เก็บเฉพาะเฟรมล่าสุด
-                    emotion_data.pop(0)
+                # เก็บข้อมูลเฟรมปัจจุบันสำหรับการวิเคราะห์ทุก 5 วินาที
+                frame_emotion_data.append(current_frame_data)
                 last_detection_time = current_time
 
             await asyncio.sleep(0.1)
@@ -310,7 +376,9 @@ async def emotion_detection(websocket: WebSocket):
 
 @app.on_event("startup")
 async def on_startup():
-    asyncio.create_task(summarize_emotion())
+    # เริ่มทั้งสองงานพร้อมกัน
+    asyncio.create_task(capture_dominant_emotion_every_5sec())
+    asyncio.create_task(summarize_emotion_every_30sec())
 
 # เส้นทางรากสำหรับทดสอบ
 @app.get("/")

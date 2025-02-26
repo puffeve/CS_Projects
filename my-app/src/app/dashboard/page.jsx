@@ -30,13 +30,6 @@ const AdminDashboard = () => {
           >
             จัดการข้อมูลรายวิชา
           </button>
-          
-          <button
-            onClick={() => navigateTo('/searchimg')}
-            className="w-full bg-purple-400 text-white py-4 rounded-lg hover:bg-purple-300 transition"
-          >
-            จัดการข้อมูลใบหน้า
-          </button>
         </div>
       </div>
     </div>
