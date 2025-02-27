@@ -420,18 +420,14 @@ export default function CompareCourses() {
           <button onClick={() => router.push("/compare_result")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
             เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
           </button>
-          <button 
-        onClick={() => router.push('/compare_courses')}
-        className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md "
-      >
-        เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
-      </button>
-        <button
-          onClick={handleBackClick}
-          className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4"
-        >
-          ย้อนกลับ
-        </button>
+          {/* ลบปุ่มเปรียบเทียบผลวิเคราะห์ระหว่างรายวิชาออก */}
+          <button
+            onClick={handleBackClick}
+            className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4"
+          >
+            ย้อนกลับ
+          </button>
+        </div>
 
         <div className="absolute bottom-4 left-0 w-full px-4">
           <button
@@ -445,7 +441,6 @@ export default function CompareCourses() {
             ออกจากระบบ
           </button>
         </div>
-      </div>
       </div>
 
       {/* Main Content */}

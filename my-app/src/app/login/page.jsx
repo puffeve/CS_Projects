@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e) => {
@@ -55,10 +56,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full p-8 bg-sky-50 rounded-lg shadow-md">
-        <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-8">
-          Login
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#c1d9a4] via-[#95c9a6] to-[#64b6b3]">
+      <div className="max-w-md w-full px-8 py-10">
+        <h2 className="text-center text-5xl font-extralight text-white mb-16">
+        WELCOME to ClassMood Insight!
         </h2>
 
         {error && (
@@ -67,52 +68,67 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email 
-            </label>
-            <input
-              id="email"
-              type="text"
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="bg-white rounded-md overflow-hidden shadow-md">
+            <div className="flex items-center px-4 py-3">
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+              </svg>
+              <input
+                id="email"
+                type="text"
+                placeholder="Email"
+                required
+                className="ml-2 block w-full border-0 focus:ring-0 focus:outline-none text-gray-400 placeholder-gray-400"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password 
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+          <div className="bg-white rounded-md overflow-hidden shadow-md mt-3">
+            <div className="flex items-center px-4 py-3">
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+              </svg>
+              <input
+                id="password"
+                type="password"
+                placeholder="**********"
+                required
+                className="ml-2 block w-full border-0 focus:ring-0 focus:outline-none text-gray-400 placeholder-gray-400"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-white py-4">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-white border border-white rounded-full p-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+              </svg>
+              <label htmlFor="remember-me" className="ml-2 text-sm font-light">
+                Remember me
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-sm font-light text-white hover:underline"
+            >
+              Forgot password?
+            </button>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-400 hover:bg-pink-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-300 disabled:bg-sky-200"
+            className="w-full flex justify-center py-3 px-4 mt-6 bg-teal-700 bg-opacity-40 hover:bg-opacity-50 text-white rounded-md border border-teal-600 border-opacity-30 text-2xl font-light transition-colors duration-200"
           >
-            {loading ? 'Logging in...' : 'Login'}
+            Login
           </button>
         </form>
-
-        <div className="mt-4 text-center">
-          <button
-            onClick={handleForgotPassword}
-            className="text-sm text-blue-500 hover:text-blue-700"
-          >
-            Forgot Password?
-          </button>
-        </div>
       </div>
     </div>
   );

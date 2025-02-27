@@ -184,7 +184,7 @@ export default function TeacherPage() {
             <div className="grid grid-cols-5 gap-4">
               <div className="col-span-5 mb-6">
                 <h3 className="text-xl mb-4">วิชาปีการศึกษาปัจจุบัน</h3>
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-7 gap-4">
                   {currentYearCourses.length > 0 ? (
                     currentYearCourses.map((course) => (
                       <button
@@ -244,8 +244,8 @@ export default function TeacherPage() {
           </>
         ) : (
           <>
-            <h2 className="text-2xl font-bold mb-4">
-              ตอนนี้อยู่ในวิชา {selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})
+            <h2 className="text-2xl font-bold mb-4"> 
+              ตอนนี้อยู่ในวิชา <span className="text-pink-500">{selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})</span> 
             </h2>
             <p className="text-lg mb-8">
               ภาคเรียน: {selectedCourse.term} | ปีการศึกษา: {selectedCourse.year}

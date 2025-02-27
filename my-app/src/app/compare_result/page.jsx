@@ -156,12 +156,7 @@ const CompareResultPage = ({ handleSignOut }) => {
           <button onClick={() => router.push("/compare_result")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
             เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
           </button>
-          <button 
-        onClick={() => router.push('/compare_courses')}
-        className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md "
-      >
-        เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
-      </button>
+          {/* ลบปุ่มเปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา */}
           <button onClick={() => router.push("/Teacher_dashboard")} className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4">
             ย้อนกลับ
           </button>

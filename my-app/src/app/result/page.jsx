@@ -230,12 +230,7 @@ const ResultPage = ({ handleSignOut }) => {
           <button onClick={() => router.push("/compare_result")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
             เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
           </button>
-          <button 
-        onClick={() => router.push('/compare_courses')}
-        className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md "
-      >
-        เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
-      </button>
+          {/* ลบปุ่ม "เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา" */}
           <button onClick={() => router.push("/Teacher_dashboard")} className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4">
             ย้อนกลับ
           </button>
@@ -322,7 +317,7 @@ const ResultPage = ({ handleSignOut }) => {
                         emotionData.Neutral,
                         emotionData.Disgusted,
                       ],
-                      backgroundColor: ["#ffea00", "#0c0047", "#ff0026", "#000000", "#8A2BE2", "#616161", "#2edb02"],
+                      backgroundColor: ["#FFF37F", "#A8C6FD", "#FFA7A7", "#B1B1B1", "#F0B1FB", "#E3E3E3", "#B3FDC2"],
                     },
                   ],
                 }}
