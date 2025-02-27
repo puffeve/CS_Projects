@@ -15,6 +15,7 @@ const CompareResultPage = ({ handleSignOut }) => {
   const [selectedDates, setSelectedDates] = useState([]);
   const [emotionData, setEmotionData] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [userCourses, setUserCourses] = useState([]); // Added state for courses
   const router = useRouter();
 
   useEffect(() => {
@@ -22,8 +23,8 @@ const CompareResultPage = ({ handleSignOut }) => {
   }, [router.pathname]);
 
   const pathname = usePathname();
-console.log("Current Path:", pathname);
-const isResultPage = pathname === "/compare_result";  // ตรวจสอบว่าตรงกับ path "/result" หรือไม่
+  console.log("Current Path:", pathname);
+  const isResultPage = pathname === "/compare_result";  // ตรวจสอบว่าตรงกับ path "/result" หรือไม่
   
   useEffect(() => {
     const storedCourse = localStorage.getItem("selectedCourse");
@@ -47,6 +48,23 @@ const isResultPage = pathname === "/compare_result";  // ตรวจสอบ�
       fetchTimestamps();
     }
   }, [selectedCourse]);
+
+  const fetchUserCourses = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('user_id', userId);  // ดึงข้อมูลวิชาที่ผู้ใช้มีสิทธิ์จาก user_id
+  
+      if (error) {
+        console.error('Error fetching courses:', error);
+      } else {
+        setUserCourses(data);  // เก็บข้อมูลวิชาใน state
+      }
+    } catch (error) {
+      console.error("Error fetching user courses:", error.message);
+    }
+  };
 
   const convertToBuddhistYear = (date) => {
     const year = date.getFullYear();
@@ -114,6 +132,11 @@ const isResultPage = pathname === "/compare_result";  // ตรวจสอบ�
     setShowModal(false);
   };
 
+  const handleCourseChange = (event) => {
+    const selectedCourse = userCourses.find(course => course.courses_id === event.target.value);
+    setSelectedCourse(selectedCourse);  // เก็บข้อมูลวิชาที่เลือก
+  };
+
   return (
     <div className="flex min-h-screen">
       <div className="w-64 bg-sky-200 text-black p-4 relative flex flex-col">
@@ -149,48 +172,67 @@ const isResultPage = pathname === "/compare_result";  // ตรวจสอบ�
       
       {/* เนื้อหาหลัก */}
       <div className="flex-1 p-8 overflow-y-auto">
-  {selectedCourse ? (  // ตรวจสอบว่า selectedCourse มีค่าหรือยัง
-    <h2 className="text-2xl font-bold mb-4">
-      ตอนนี้อยู่ในวิชา {selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})
-    </h2>
-  ) : (
-    <h2 className="text-2xl font-bold mb-4">กำลังโหลดข้อมูลวิชา...</h2>  // หากยังไม่มีข้อมูลจะแสดงข้อความนี้
-  )}
-  {selectedCourse && (
-    <p className="text-lg">ภาคเรียน: {selectedCourse.term} | ปีการศึกษา: {selectedCourse.year}</p>
-  )}
-
-      
-      {/* เพิ่มข้อความที่ต้องการแสดง */}
-      {isResultPage && (
-    <h3 className="text-xl mt-4 mb-4">
-      <span className="bg-pink-200 px-2 py-1 rounded">
-        ตอนนี้อยู่ในหน้าเปรียบเทียบผลวิเคราะห์
-      </span>
-    </h3>
-  )}
-      <div className="mt-6 space-y-4">
-      <h3 className="text-xl font-semibold mb-3">เปรียบเทียบในรายวิชาเดียวกัน</h3>
-        <h2 className="text-xl font-semibold mb-3">กรุณาเลือกวันที่ 2 วันเพื่อทำการเปรียบเทียบผลการวิเคราะห์</h2>
-        <div className="grid grid-cols-3 gap-4">
-          {timestamps.map((date, index) => (
-            <button 
-              key={index}
-              onClick={() => setSelectedDates(prev => prev.includes(date) ? prev.filter(d => d !== date) : [...prev.slice(-1), date])}
-              className={`p-3 rounded-lg ${selectedDates.includes(date) ? 'bg-blue-500 text-white' : 'bg-gray-300'}`}
-            >
-              {date}
-            </button>
-          ))}
-        </div>
-        {selectedDates.length === 2 && (
-          <button onClick={fetchEmotionData} className="mt-4 bg-green-500 text-white py-2 px-4 rounded-lg">
-            แสดงผลเปรียบเทียบ
-          </button>
+        {selectedCourse ? (  // ตรวจสอบว่า selectedCourse มีค่าหรือยัง
+          <h2 className="text-2xl font-bold mb-4">
+            ตอนนี้อยู่ในวิชา {selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})
+          </h2>
+        ) : (
+          <h2 className="text-2xl font-bold mb-4">กำลังโหลดข้อมูลวิชา...</h2>  // หากยังไม่มีข้อมูลจะแสดงข้อความนี้
         )}
+        {selectedCourse && (
+          <p className="text-lg">ภาคเรียน: {selectedCourse.term} | ปีการศึกษา: {selectedCourse.year}</p>
+        )}
+
+        {/* เพิ่มข้อความที่ต้องการแสดง */}
+        {isResultPage && (
+          <h3 className="text-xl mt-4 mb-4">
+            <span className="bg-pink-200 px-2 py-1 rounded">
+              ตอนนี้อยู่ในหน้าเปรียบเทียบผลวิเคราะห์
+            </span>
+          </h3>
+        )}
+        
+        <div className="mt-6 space-y-4">
+          <h3 className="text-xl font-semibold mb-3">เปรียบเทียบในรายวิชาเดียวกัน</h3>
+          <h2 className="text-xl mb-3">กรุณาเลือกวันที่ 2 วันเพื่อทำการเปรียบเทียบผลการวิเคราะห์</h2>
+          <div className="grid grid-cols-3 gap-4">
+            {timestamps.map((date, index) => (
+              <button 
+                key={index}
+                onClick={() => setSelectedDates(prev => prev.includes(date) ? prev.filter(d => d !== date) : [...prev.slice(-1), date])}
+                className={`p-3 rounded-lg ${selectedDates.includes(date) ? 'bg-blue-500 text-white' : 'bg-gray-300'}`}
+              >
+                {date}
+              </button>
+            ))}
+          </div>
+
+          {/* แสดงผลเปรียบเทียบ และ เลือกวิชาที่ต้องการเปรียบเทียบ */}
+          <div className="mt-4">
+            <button 
+              onClick={fetchEmotionData} 
+              className="bg-green-500 text-white py-2 px-4 rounded-lg "
+            >
+              แสดงผลเปรียบเทียบ
+            </button>
+            <div className="mt-4">
+              <h3 className="text-xl font-semibold mb-3">เลือกวิชาที่ต้องการเปรียบเทียบ</h3>
+              <select
+                className="p-2 border border-gray-300 rounded-lg"
+                value={selectedCourse?.courses_id || ""}
+                onChange={handleCourseChange}
+              >
+                <option value="" disabled>เลือกวิชา</option>
+                {userCourses.map((course) => (
+                  <option key={course.courses_id} value={course.courses_id}>
+                    {course.courses_id} {/* แสดงแค่ courses_id */}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
-      </div>
-      
 
       {showModal && emotionData && (
         <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-700 bg-opacity-50 flex justify-center items-center z-50">
