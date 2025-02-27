@@ -18,6 +18,14 @@ export default function TeacherPage() {
     // Load user data on component mount
     const loadUserData = () => {
       try {
+        // ตรวจสอบว่ามีวิชาที่เคยเลือกไว้แล้วหรือไม่
+        const savedCourse = localStorage.getItem('selectedCourse');
+        if (savedCourse) {
+          const parsedCourse = JSON.parse(savedCourse);
+          setSelectedCourse(parsedCourse);
+          setIsCoursePage(false);
+        }
+        
         const user = JSON.parse(localStorage.getItem('user'));
         if (user) {
           if (user.role === 'teacher') {
@@ -129,15 +137,34 @@ export default function TeacherPage() {
     console.log(isHidden ? 'Showing old courses' : 'Hiding old courses');
   };
 
+  // ฟังก์ชันเช็คว่าวิชาถูกเลือกอยู่หรือไม่
+  const isCourseSelected = (course) => {
+    if (!selectedCourse) return false;
+    return selectedCourse.courses_id === course.courses_id;
+  };
+
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
       <div className="w-64 bg-sky-200 text-black p-4 relative">
         <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
         {userName && <div className="text-lg font-semibold mb-4">สวัสดี {userName}</div>}
+        
+        {/* เพิ่มปุ่มเลือกวิชาเปรียบเทียบตรงนี้ */}
+        {courses.length > 0 && (
+          <div className="mb-4">
+            <button 
+              onClick={() => router.push('/compare_courses')}
+              className="w-full bg-yellow-500 hover:bg-yellow-400 text-white p-2 rounded-lg shadow-md transition duration-300"
+            >
+              เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
+            </button>
+          </div>
+        )}
+        
         <hr className="border-[#305065] mb-6" />
         
-        {selectedCourse && (
+        {selectedCourse && !isCoursePage && (
           <div className="mt-4 flex flex-col items-start space-y-2">
             <button
               onClick={() => router.push('/analyze_face')}
@@ -158,7 +185,7 @@ export default function TeacherPage() {
               onClick={() => router.push('/compare_result')}
               className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg mr-4 shadow-md transition duration-300"
             >
-              เปรียบเทียบผลวิเคราะห์
+              เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
             </button>
             <button
               onClick={handleBackClick}
@@ -192,11 +219,15 @@ export default function TeacherPage() {
                     currentYearCourses.map((course) => (
                       <button
                         key={course.courses_id}
-                        className="bg-white p-4 rounded-lg shadow text-left hover:bg-gray-100"
+                        className={`p-4 rounded-lg shadow text-left transition-all duration-200 ${
+                          isCourseSelected(course) 
+                            ? "bg-blue-100 border-2 border-blue-500 transform scale-105" 
+                            : "bg-white hover:bg-gray-100"
+                        }`}
                         onClick={() => handleCourseClick(course)}
                       >
                         <p>รหัสวิชา: {course.courses_id}</p>
-                        <p>ชื่อวิชา: {course.namecourses}</p>
+                        <p className="font-medium">ชื่อวิชา: {course.namecourses}</p>
                         <p>ภาคเรียน: {course.term}</p>
                         <p>ปีการศึกษา: {course.year}</p>
                       </button>
@@ -223,11 +254,15 @@ export default function TeacherPage() {
                     {previousYearCourses.map((course) => (
                       <button
                         key={course.courses_id}
-                        className="bg-white p-4 rounded-lg shadow text-left hover:bg-gray-100"
+                        className={`p-4 rounded-lg shadow text-left transition-all duration-200 ${
+                          isCourseSelected(course) 
+                            ? "bg-blue-100 border-2 border-blue-500 transform scale-105" 
+                            : "bg-white hover:bg-gray-100"
+                        }`}
                         onClick={() => handleCourseClick(course)}
                       >
                         <p>รหัสวิชา: {course.courses_id}</p>
-                        <p>ชื่อวิชา: {course.namecourses}</p>
+                        <p className="font-medium">ชื่อวิชา: {course.namecourses}</p>
                         <p>ภาคเรียน: {course.term}</p>
                         <p>ปีการศึกษา: {course.year}</p>
                       </button>

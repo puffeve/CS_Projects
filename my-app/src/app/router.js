@@ -6,7 +6,7 @@ function AppRouter() {
   return (
     <Router>
       <Routes>
-        <Route path="/teacher-dashboard" element={<TeacherPage />} />
+        <Route path="/Teacher-dashboard" element={<TeacherPage />} />
         <Route path="/analyze_face" element={<FaceAnalysisPage />} /> {/* แก้ path ให้ตรง */}
       </Routes>
     </Router>

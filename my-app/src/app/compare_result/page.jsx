@@ -10,12 +10,12 @@ ChartJS.register(BarElement, Tooltip, Legend, CategoryScale, LinearScale);
 
 const CompareResultPage = ({ handleSignOut }) => {
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [compareWithCourse, setCompareWithCourse] = useState(null); // เพิ่มตัวแปรสำหรับวิชาที่ต้องการเปรียบเทียบ
   const [userName, setUserName] = useState("");
   const [timestamps, setTimestamps] = useState([]);
   const [selectedDates, setSelectedDates] = useState([]);
   const [emotionData, setEmotionData] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [userCourses, setUserCourses] = useState([]); // Added state for courses
   const router = useRouter();
 
   useEffect(() => {
@@ -28,18 +28,32 @@ const CompareResultPage = ({ handleSignOut }) => {
   
   useEffect(() => {
     const storedCourse = localStorage.getItem("selectedCourse");
-    const storedUserName = localStorage.getItem("userName");
-  
+    const compareWithCourseData = localStorage.getItem("compareWithCourse");
+    
+    // ดึงข้อมูลผู้ใช้จาก localStorage
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (user) {
+        // เก็บชื่อผู้ใช้จากข้อมูล user object
+        setUserName(user.name);
+      } else {
+        router.push("/login");
+      }
+    } catch (error) {
+      console.error("เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้:", error);
+      router.push("/login");
+    }
+
+    // ตรวจสอบวิชาที่เลือก
     if (storedCourse) {
       setSelectedCourse(JSON.parse(storedCourse));
     } else {
       router.push("/teacher_dashboard");
     }
-  
-    if (storedUserName) {
-      setUserName(storedUserName);
-    } else {
-      router.push("/teacher_dashboard");
+    
+    // ตรวจสอบวิชาที่ต้องการเปรียบเทียบ
+    if (compareWithCourseData) {
+      setCompareWithCourse(JSON.parse(compareWithCourseData));
     }
   }, [router]);
 
@@ -48,23 +62,6 @@ const CompareResultPage = ({ handleSignOut }) => {
       fetchTimestamps();
     }
   }, [selectedCourse]);
-
-  const fetchUserCourses = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('user_id', userId);  // ดึงข้อมูลวิชาที่ผู้ใช้มีสิทธิ์จาก user_id
-  
-      if (error) {
-        console.error('Error fetching courses:', error);
-      } else {
-        setUserCourses(data);  // เก็บข้อมูลวิชาใน state
-      }
-    } catch (error) {
-      console.error("Error fetching user courses:", error.message);
-    }
-  };
 
   const convertToBuddhistYear = (date) => {
     const year = date.getFullYear();
@@ -132,11 +129,6 @@ const CompareResultPage = ({ handleSignOut }) => {
     setShowModal(false);
   };
 
-  const handleCourseChange = (event) => {
-    const selectedCourse = userCourses.find(course => course.courses_id === event.target.value);
-    setSelectedCourse(selectedCourse);  // เก็บข้อมูลวิชาที่เลือก
-  };
-
   return (
     <div className="flex min-h-screen">
       <div className="w-64 bg-sky-200 text-black p-4 relative flex flex-col">
@@ -183,6 +175,7 @@ const CompareResultPage = ({ handleSignOut }) => {
           <p className="text-lg">ภาคเรียน: {selectedCourse.term} | ปีการศึกษา: {selectedCourse.year}</p>
         )}
 
+  
         {/* เพิ่มข้อความที่ต้องการแสดง */}
         {isResultPage && (
           <h3 className="text-xl mt-4 mb-4">
@@ -194,7 +187,6 @@ const CompareResultPage = ({ handleSignOut }) => {
         
         <div className="mt-6 space-y-4">
           <h3 className="text-xl font-semibold mb-3">เปรียบเทียบในรายวิชาเดียวกัน</h3>
-          <h2 className="text-xl mb-3">กรุณาเลือกวันที่ 2 วันเพื่อทำการเปรียบเทียบผลการวิเคราะห์</h2>
           <div className="grid grid-cols-3 gap-4">
             {timestamps.map((date, index) => (
               <button 
@@ -207,29 +199,14 @@ const CompareResultPage = ({ handleSignOut }) => {
             ))}
           </div>
 
-          {/* แสดงผลเปรียบเทียบ และ เลือกวิชาที่ต้องการเปรียบเทียบ */}
+          {/* แสดงผลเปรียบเทียบ */}
           <div className="mt-4">
             <button 
               onClick={fetchEmotionData} 
-              className="bg-green-500 text-white py-2 px-4 rounded-lg "
+              className="bg-green-500 text-white py-2 px-4 rounded-lg"
             >
               แสดงผลเปรียบเทียบ
             </button>
-            <div className="mt-4">
-              <h3 className="text-xl font-semibold mb-3">เลือกวิชาที่ต้องการเปรียบเทียบ</h3>
-              <select
-                className="p-2 border border-gray-300 rounded-lg"
-                value={selectedCourse?.courses_id || ""}
-                onChange={handleCourseChange}
-              >
-                <option value="" disabled>เลือกวิชา</option>
-                {userCourses.map((course) => (
-                  <option key={course.courses_id} value={course.courses_id}>
-                    {course.courses_id} {/* แสดงแค่ courses_id */}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
       </div>

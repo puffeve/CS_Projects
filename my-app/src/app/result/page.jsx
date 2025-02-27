@@ -13,17 +13,19 @@ const ResultPage = ({ handleSignOut }) => {
   const [userName, setUserName] = useState("");
   const [timestamps, setTimestamps] = useState([]);
   const [emotionData, setEmotionData] = useState(null);
-  const [showModal, setShowModal] = useState(false); // State for showing the modal
+  const [showModal, setShowModal] = useState(false);
   const [selectedTime, setSelectedTime] = useState(null);
   const router = useRouter();
 
-  // ✅ โหลดข้อมูลจาก LocalStorage
+  // โหลดข้อมูลจาก LocalStorage
   useEffect(() => {
     const storedCourse = localStorage.getItem("selectedCourse");
     const storedUserName = localStorage.getItem("userName");
 
     if (storedCourse) {
-      setSelectedCourse(JSON.parse(storedCourse));
+      const parsedCourse = JSON.parse(storedCourse);
+      setSelectedCourse(parsedCourse);
+      console.log("Selected Course:", parsedCourse);
     } else {
       router.push("/teacher_dashboard");
     }
@@ -37,46 +39,54 @@ const ResultPage = ({ handleSignOut }) => {
 
   const convertToBuddhistYear = (date) => {
     const year = date.getFullYear();
-    return year + 543; // เปลี่ยนจาก ค.ศ. เป็น พ.ศ.
+    return year + 543;
   };
   
-  const formatDate = (date) => {
-    const buddhistYear = convertToBuddhistYear(date);
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    const formattedDate = new Intl.DateTimeFormat('th-TH', options).format(date);
-    return `${formattedDate} พ.ศ. ${buddhistYear}`;
+  const formatDate = (dateInput) => {
+    try {
+      const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+      
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', dateInput);
+        return 'Invalid Date';
+      }
+
+      const buddhistYear = convertToBuddhistYear(date);
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      const formattedDate = new Intl.DateTimeFormat('th-TH', options).format(date);
+      return `${formattedDate} พ.ศ. ${buddhistYear}`;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid Date';
+    }
   };
 
-  // ✅ แปลงเวลาเป็นเวลาท้องถิ่นของไทย (Asia/Bangkok)
   const convertToLocalTime = (timestamp) => {
     const date = new Date(timestamp);
     const localTime = date.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
     return localTime;
   };
 
-  // ✅ โหลด timestamps เมื่อ selectedCourse ถูกตั้งค่าแล้ว
+  // โหลด timestamps เมื่อ selectedCourse ถูกตั้งค่าแล้ว
   useEffect(() => {
     if (selectedCourse) {
       fetchTimestamps();
     }
   }, [selectedCourse]);
 
-  // ✅ ดึง timestamps จาก Supabase และจัดกลุ่มตามวันที่
+  // ดึง timestamps จาก Supabase และจัดกลุ่มตามวันที่
   const fetchTimestamps = async () => {
     if (!selectedCourse) return;
 
     try {
       const { data, error } = await supabase
-        .from("emotiondata")
-        .select("timestamp")
-        .eq("courses_id", selectedCourse.courses_id); // ✅ กรองเฉพาะ courses_id ที่เลือก
+        .from("emotion_detection")
+        .select("detection_time")
+        .eq("courses_id", selectedCourse.courses_id);
 
       if (error) throw error;
 
-      // ✅ เรียงลำดับ timestamp ตามวันที่ก่อน
-      const sortedTimestamps = data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-      // ✅ เอา timestamp ที่ไม่ซ้ำกัน และจัดกลุ่มตามวัน
+      const sortedTimestamps = data.sort((a, b) => new Date(a.detection_time) - new Date(b.detection_time));
       const groupedTimestamps = groupTimestampsByDate(sortedTimestamps);
       setTimestamps(groupedTimestamps);
     } catch (error) {
@@ -84,83 +94,83 @@ const ResultPage = ({ handleSignOut }) => {
     }
   };
 
-  // ✅ ฟังก์ชันในการจัดกลุ่ม timestamp ตามวัน
+  // จัดกลุ่ม timestamp ตามวัน
   const groupTimestampsByDate = (timestamps) => {
     const grouped = {};
 
     timestamps.forEach((item) => {
-      const date = new Date(item.timestamp);
-      const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+      try {
+        const date = new Date(item.detection_time);
+        
+        if (isNaN(date.getTime())) {
+          console.error('Invalid timestamp:', item);
+          return;
+        }
 
-      if (!grouped[dateString]) {
-        grouped[dateString] = [];
+        const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+
+        if (!grouped[dateString]) {
+          grouped[dateString] = [];
+        }
+        grouped[dateString].push(date.toISOString());
+      } catch (error) {
+        console.error('Error processing timestamp:', error);
       }
-      grouped[dateString].push(item.timestamp);
     });
 
     return Object.keys(grouped).map((date) => ({
       date,
       timestamps: grouped[date],
-    }));
+    })).sort((a, b) => new Date(a.date) - new Date(b.date));
   };
 
-  // ✅ ฟังก์ชันดึงข้อมูล percentage จาก Supabase และคำนวณค่าเฉลี่ยของแต่ละอารมณ์
+  // ดึงข้อมูล percentage จาก Supabase และคำนวณค่าเฉลี่ยของแต่ละอารมณ์
   const fetchEmotionData = async (time) => {
     if (!selectedCourse || !time) return;
   
     try {
-      const startOfDay = new Date(time); // เวลาที่เริ่มต้นในวันนั้น
+      const startOfDay = new Date(time);
       const endOfDay = new Date(startOfDay);
-      endOfDay.setDate(startOfDay.getDate() + 1); // เวลาสิ้นสุดในวันถัดไป
+      endOfDay.setDate(startOfDay.getDate() + 1);
   
       const startOfDayISO = startOfDay.toISOString();
       const endOfDayISO = endOfDay.toISOString();
   
       const { data, error } = await supabase
-        .from("emotiondata")
-        .select("emotion, timestamp")
+        .from("emotion_detection")
+        .select("emotion, detection_time")
         .eq("courses_id", selectedCourse.courses_id)
-        .gte("timestamp", startOfDayISO)
-        .lt("timestamp", endOfDayISO);
+        .gte("detection_time", startOfDayISO)
+        .lt("detection_time", endOfDayISO);
   
       if (error) throw error;
   
       const emotions = {
-        happiness: 0,
-        sadness: 0,
-        anger: 0,
-        fear: 0,
-        surprise: 0,
-        neutral: 0,
-        disgusted: 0,
+        Happiness: 0,
+        Sadness: 0,
+        Anger: 0,
+        Fear: 0,
+        Surprise: 0,
+        Neutral: 0,
+        Disgusted: 0,
       };
   
       data.forEach((item) => {
-        if (item.emotion === 'happy') {
-          emotions.happiness += 1;
-        } else if (item.emotion === 'sad') {
-          emotions.sadness += 1;
-        } else if (item.emotion === 'angry') {
-          emotions.anger += 1;
-        } else if (item.emotion === 'fear') {
-          emotions.fear += 1;
-        } else if (item.emotion === 'surprise') {
-          emotions.surprise += 1;
-        }
-        else if (item.emotion === 'neutral') {
-          emotions.neutral += 1;
-        }
-        else if (item.emotion === 'disgusted') {
-          emotions.disgusted += 1;
+        if (emotions.hasOwnProperty(item.emotion)) {
+          emotions[item.emotion] += 1;
         }
       });
   
       const total = data.length;
       if (total > 0) {
         for (const key in emotions) {
-          emotions[key] = emotions[key] / total; // คำนวณค่าเฉลี่ย
+          emotions[key] = emotions[key] / total;
         }
       }
+  
+      console.log('Emotion Data:', emotions);
+      console.log('Total records:', total);
+      console.log('Raw Data:', data);
   
       setEmotionData(emotions);
       setSelectedTime(time);
@@ -170,7 +180,7 @@ const ResultPage = ({ handleSignOut }) => {
     }
   };
   
-  // ฟังก์ชันสำหรับปิดป๊อปอัพ
+  // ปิดป๊อปอัพ
   const closeModal = () => {
     setShowModal(false);
   };
@@ -185,7 +195,6 @@ const ResultPage = ({ handleSignOut }) => {
         <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
         {userName && <div className="text-lg font-semibold mb-4">สวัสดี {userName}</div>}
         <hr className="border-[#305065] mb-6" />
-        {/* เมนูการทำรายการ */}
         <div className="flex-1 flex flex-col items-start space-y-2">
           <button onClick={() => router.push("/analyze_face")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
             วิเคราะห์ใบหน้า
@@ -200,7 +209,6 @@ const ResultPage = ({ handleSignOut }) => {
             ย้อนกลับ
           </button>
         </div>
-        {/* ปุ่มออกจากระบบ */}
         <div className="sticky bottom-4 left-0 w-full px-4">
           <button
             onClick={handleSignOut}
@@ -211,13 +219,11 @@ const ResultPage = ({ handleSignOut }) => {
         </div>
       </div>
 
-      {/* เนื้อหาหลัก */}
       <div className="flex-1 p-8 overflow-y-auto">
         <h2 className="text-2xl font-bold mb-4">
           ตอนนี้อยู่ในวิชา {selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})
         </h2>
         <p className="text-lg">ภาคเรียน: {selectedCourse.term} | ปีการศึกษา: {selectedCourse.year}</p>
-        {/* แสดงรายการปุ่ม timestamp ที่จัดกลุ่มตามวัน */}
         <div className="mt-6 space-y-4">
           <h3 className="text-xl font-semibold mb-3">เลือกวัน/เวลาที่ต้องการดูผลวิเคราะห์</h3>
           {timestamps.length > 0 ? (
@@ -238,7 +244,6 @@ const ResultPage = ({ handleSignOut }) => {
         </div>
       </div>
 
-      {/* ป๊อปอัพแสดงกราฟพาย */}
       {showModal && emotionData && (
         <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-700 bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-8 rounded-lg shadow-xl max-w-3xl w-full relative">
@@ -246,18 +251,18 @@ const ResultPage = ({ handleSignOut }) => {
             
             <Pie
               data={{
-                labels: ["Happy", "Sad", "Anger", "Fearful", "Surprised","Neutral","Disgusted"],
+                labels: ["Happiness", "Sadness", "Anger", "Fear", "Surprise", "Neutral", "Disgusted"],
                 datasets: [{
                   data: [
-                    emotionData.happiness * 100,
-                    emotionData.sadness * 100,
-                    emotionData.anger * 100,
-                    emotionData.fear * 100,
-                    emotionData.surprise * 100,
-                    emotionData.neutral * 100,
-                    emotionData.disgusted * 100,
+                    emotionData.Happiness * 100,
+                    emotionData.Sadness * 100,
+                    emotionData.Anger * 100,
+                    emotionData.Fear * 100,
+                    emotionData.Surprise * 100,
+                    emotionData.Neutral * 100,
+                    emotionData.Disgusted * 100,
                   ],
-                  backgroundColor: ["#ffea00", "#0c0047", "#ff0026", "#000000", "#8A2BE2","#616161","#2edb02"],
+                  backgroundColor: ["#ffea00", "#0c0047", "#ff0026", "#000000", "#8A2BE2", "#616161", "#2edb02"],
                 }],
               }}
               options={{
