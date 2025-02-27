@@ -410,9 +410,25 @@ export default function CompareCourses() {
         
         <hr className="border-[#305065] mb-6" />
         
+        <div className="flex-1 flex flex-col items-start space-y-2">
+          <button onClick={() => router.push("/analyze_face")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
+            วิเคราะห์ใบหน้า
+          </button>
+          <button onClick={() => router.push("/result")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md">
+            ผลวิเคราะห์
+          </button>
+          <button onClick={() => router.push("/compare_result")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
+            เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
+          </button>
+          <button 
+        onClick={() => router.push('/compare_courses')}
+        className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md "
+      >
+        เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
+      </button>
         <button
           onClick={handleBackClick}
-          className="w-full bg-gray-600 hover:bg-gray-400 px-4 py-2 rounded-md text-white mt-4"
+          className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4"
         >
           ย้อนกลับ
         </button>
@@ -429,6 +445,7 @@ export default function CompareCourses() {
             ออกจากระบบ
           </button>
         </div>
+      </div>
       </div>
 
       {/* Main Content */}
