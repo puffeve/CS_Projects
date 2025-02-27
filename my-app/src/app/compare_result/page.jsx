@@ -21,6 +21,30 @@ const CompareResultPage = ({ handleSignOut }) => {
   const pathname = usePathname();
   const isResultPage = pathname === "/compare_result";
   
+  // แปลงชื่ออารมณ์เป็นภาษาไทย
+  const emotionTranslation = {
+    "Happiness": "ความสุข",
+    "Sadness": "ความเศร้า",
+    "Anger": "ความโกรธ",
+    "Fear": "ความกลัว",
+    "Surprise": "ความประหลาดใจ",
+    "Neutral": "เป็นกลาง",
+    "Disgusted": "ความรังเกียจ"
+  };
+  
+  // แปลงวันที่ให้เป็นรูปแบบไทย (พ.ศ.)
+  const formatThaiDate = (dateString) => {
+    if (!dateString) return "";
+    
+    const date = new Date(dateString);
+    const thaiYear = date.getFullYear() + 543;
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    
+    // รูปแบบ: วัน/เดือน/พ.ศ.
+    return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${thaiYear}`;
+  };
+  
   useEffect(() => {
     const storedCourse = localStorage.getItem("selectedCourse");
     const compareWithCourseData = localStorage.getItem("compareWithCourse");
@@ -97,6 +121,7 @@ const CompareResultPage = ({ handleSignOut }) => {
 
         return { 
           date, 
+          formattedDate: formatThaiDate(date),
           emotions,
           total: data.length 
         };
@@ -129,8 +154,14 @@ const CompareResultPage = ({ handleSignOut }) => {
             ผลวิเคราะห์
           </button>
           <button onClick={() => router.push("/compare_result")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
-            เปรียบเทียบผลวิเคราะห์
+            เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
           </button>
+          <button 
+        onClick={() => router.push('/compare_courses')}
+        className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md "
+      >
+        เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
+      </button>
           <button onClick={() => router.push("/Teacher_dashboard")} className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4">
             ย้อนกลับ
           </button>
@@ -149,8 +180,8 @@ const CompareResultPage = ({ handleSignOut }) => {
       <div className="flex-1 p-8 overflow-y-auto">
         {selectedCourse ? (
           <h2 className="text-2xl font-bold mb-4">
-            ตอนนี้อยู่ในวิชา {selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})
-          </h2>
+          ตอนนี้อยู่ในวิชา <span className="text-pink-500">{selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})</span>
+        </h2>
         ) : (
           <h2 className="text-2xl font-bold mb-4">กำลังโหลดข้อมูลวิชา...</h2>
         )}
@@ -168,22 +199,28 @@ const CompareResultPage = ({ handleSignOut }) => {
         
         <div className="mt-6 space-y-4">
           <h3 className="text-xl font-semibold mb-3">เปรียบเทียบในรายวิชาเดียวกัน</h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             {timestamps.map((date, index) => (
               <button 
                 key={index}
                 onClick={() => setSelectedDates(prev => prev.includes(date) ? prev.filter(d => d !== date) : [...prev.slice(-1), date])}
-                className={`p-3 rounded-lg ${selectedDates.includes(date) ? 'bg-blue-500 text-white' : 'bg-gray-300'}`}
+                className={`block w-full bg-white border py-4 px-8 rounded-lg shadow-md flex items-center space-x-2 transition duration-300
+                  ${selectedDates.includes(date) ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-md' : 'border-gray-300 hover:bg-gray-100'}`}
               >
-                {date}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
+                </svg>
+                <span className="text-sl">วันที่ : {formatThaiDate(date)}</span>
               </button>
+              
             ))}
           </div>
 
           <div className="mt-4">
             <button 
               onClick={fetchEmotionData} 
-              className="bg-green-500 text-white py-2 px-4 rounded-lg"
+              className="bg-sky-600 hover:bg-sky-400 text-white py-2 px-4 rounded-lg"
+              disabled={selectedDates.length !== 2}
             >
               แสดงผลเปรียบเทียบ
             </button>
@@ -197,9 +234,9 @@ const CompareResultPage = ({ handleSignOut }) => {
             <h3 className="text-2xl font-semibold mb-4">กราฟเปรียบเทียบผลการวิเคราะห์อารมณ์</h3>
             <Bar 
               data={{
-                labels: ["Happiness", "Sadness", "Anger", "Fear", "Surprise", "Neutral", "Disgusted"],
+                labels: ["ความสุข", "ความเศร้า", "ความโกรธ", "ความกลัว", "ความประหลาดใจ", "เป็นกลาง", "ความรังเกียจ"],
                 datasets: emotionData.map((data, index) => ({
-                  label: `${data.date} (รวม ${data.total} ครั้ง)`,
+                  label: `${data.formattedDate} (รวม ${data.total} ครั้ง)`,
                   data: Object.values(data.emotions).map(count => ((count / data.total) * 100).toFixed(1)),
                   backgroundColor: index === 0 ? "#8884d8" : "#82ca9d",
                 }))
@@ -221,11 +258,11 @@ const CompareResultPage = ({ handleSignOut }) => {
             <div className="mt-4 grid grid-cols-2 gap-4">
               {emotionData.map((data, index) => (
                 <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-semibold mb-2">{data.date}</h4>
-                  <p>จำนวนการตรวจจับทั้งหมด: {data.total}</p>
+                  <h4 className="font-semibold mb-2">{data.formattedDate}</h4>
+                  <p>จำนวนการตรวจจับทั้งหมด: {data.total} ครั้ง</p>
                   {Object.entries(data.emotions).map(([emotion, count]) => (
                     <p key={emotion}>
-                      {emotion}: {count} ({((count / data.total) * 100).toFixed(1)}%)
+                      {emotionTranslation[emotion]}: {count} ({((count / data.total) * 100).toFixed(1)}%)
                     </p>
                   ))}
                 </div>
