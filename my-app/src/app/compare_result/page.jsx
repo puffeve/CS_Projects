@@ -10,7 +10,7 @@ ChartJS.register(BarElement, Tooltip, Legend, CategoryScale, LinearScale);
 
 const CompareResultPage = ({ handleSignOut }) => {
   const [selectedCourse, setSelectedCourse] = useState(null);
-  const [compareWithCourse, setCompareWithCourse] = useState(null); // เพิ่มตัวแปรสำหรับวิชาที่ต้องการเปรียบเทียบ
+  const [compareWithCourse, setCompareWithCourse] = useState(null);
   const [userName, setUserName] = useState("");
   const [timestamps, setTimestamps] = useState([]);
   const [selectedDates, setSelectedDates] = useState([]);
@@ -18,23 +18,16 @@ const CompareResultPage = ({ handleSignOut }) => {
   const [showModal, setShowModal] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    console.log("Current Path:", router.pathname);
-  }, [router.pathname]);
-
   const pathname = usePathname();
-  console.log("Current Path:", pathname);
-  const isResultPage = pathname === "/compare_result";  // ตรวจสอบว่าตรงกับ path "/result" หรือไม่
+  const isResultPage = pathname === "/compare_result";
   
   useEffect(() => {
     const storedCourse = localStorage.getItem("selectedCourse");
     const compareWithCourseData = localStorage.getItem("compareWithCourse");
     
-    // ดึงข้อมูลผู้ใช้จาก localStorage
     try {
       const user = JSON.parse(localStorage.getItem('user'));
       if (user) {
-        // เก็บชื่อผู้ใช้จากข้อมูล user object
         setUserName(user.name);
       } else {
         router.push("/login");
@@ -44,14 +37,12 @@ const CompareResultPage = ({ handleSignOut }) => {
       router.push("/login");
     }
 
-    // ตรวจสอบวิชาที่เลือก
     if (storedCourse) {
       setSelectedCourse(JSON.parse(storedCourse));
     } else {
       router.push("/teacher_dashboard");
     }
     
-    // ตรวจสอบวิชาที่ต้องการเปรียบเทียบ
     if (compareWithCourseData) {
       setCompareWithCourse(JSON.parse(compareWithCourseData));
     }
@@ -62,11 +53,6 @@ const CompareResultPage = ({ handleSignOut }) => {
       fetchTimestamps();
     }
   }, [selectedCourse]);
-
-  const convertToBuddhistYear = (date) => {
-    const year = date.getFullYear();
-    return year + 543; // เปลี่ยนจาก ค.ศ. เป็น พ.ศ.
-  };
 
   const fetchTimestamps = async () => {
     if (!selectedCourse) return;
@@ -102,19 +88,18 @@ const CompareResultPage = ({ handleSignOut }) => {
         const emotions = {
           Happiness: 0, Sadness: 0, Anger: 0, Fear: 0, Surprise: 0, Neutral: 0, Disgusted: 0
         };
+        
         data.forEach((item) => {
           if (item.emotion in emotions) {
             emotions[item.emotion] += 1;
           }
         });
 
-        const total = data.length;
-        if (total > 0) {
-          for (const key in emotions) {
-            emotions[key] = (emotions[key] / total) * 100;
-          }
-        }
-        return { date, emotions };
+        return { 
+          date, 
+          emotions,
+          total: data.length 
+        };
       });
       
       const result = await Promise.all(dataPromises);
@@ -135,7 +120,7 @@ const CompareResultPage = ({ handleSignOut }) => {
         <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
         {userName && <div className="text-lg font-semibold mb-4">สวัสดี {userName}</div>}
         <hr className="border-[#305065] mb-6" />
-        {/* เมนูการทำรายการ */}
+        
         <div className="flex-1 flex flex-col items-start space-y-2">
           <button onClick={() => router.push("/analyze_face")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
             วิเคราะห์ใบหน้า
@@ -150,33 +135,29 @@ const CompareResultPage = ({ handleSignOut }) => {
             ย้อนกลับ
           </button>
         </div>
-        {/* ปุ่มออกจากระบบ */}
+        
         <div className="sticky bottom-4 left-0 w-full px-4">
           <button
             onClick={handleSignOut}
-            className="w-full py-2 px-4 bg-pink-400  active:bg-[#1d2f3f] text-white rounded-lg"
+            className="w-full py-2 px-4 bg-pink-400 active:bg-[#1d2f3f] text-white rounded-lg"
           >
             ออกจากระบบ
           </button>
         </div>
       </div>
 
-      
-      {/* เนื้อหาหลัก */}
       <div className="flex-1 p-8 overflow-y-auto">
-        {selectedCourse ? (  // ตรวจสอบว่า selectedCourse มีค่าหรือยัง
+        {selectedCourse ? (
           <h2 className="text-2xl font-bold mb-4">
             ตอนนี้อยู่ในวิชา {selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})
           </h2>
         ) : (
-          <h2 className="text-2xl font-bold mb-4">กำลังโหลดข้อมูลวิชา...</h2>  // หากยังไม่มีข้อมูลจะแสดงข้อความนี้
+          <h2 className="text-2xl font-bold mb-4">กำลังโหลดข้อมูลวิชา...</h2>
         )}
         {selectedCourse && (
           <p className="text-lg">ภาคเรียน: {selectedCourse.term} | ปีการศึกษา: {selectedCourse.year}</p>
         )}
 
-  
-        {/* เพิ่มข้อความที่ต้องการแสดง */}
         {isResultPage && (
           <h3 className="text-xl mt-4 mb-4">
             <span className="bg-pink-200 px-2 py-1 rounded">
@@ -199,7 +180,6 @@ const CompareResultPage = ({ handleSignOut }) => {
             ))}
           </div>
 
-          {/* แสดงผลเปรียบเทียบ */}
           <div className="mt-4">
             <button 
               onClick={fetchEmotionData} 
@@ -214,18 +194,47 @@ const CompareResultPage = ({ handleSignOut }) => {
       {showModal && emotionData && (
         <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-700 bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-8 rounded-lg shadow-xl max-w-3xl w-full relative">
-            <h3 className="text-2xl font-semibold mb-4">กราฟเปรียบเทียบผลการวิเคราะห์อารมณ์ในช่วงเวลาที่เลือก</h3>
+            <h3 className="text-2xl font-semibold mb-4">กราฟเปรียบเทียบผลการวิเคราะห์อารมณ์</h3>
             <Bar 
               data={{
                 labels: ["Happiness", "Sadness", "Anger", "Fear", "Surprise", "Neutral", "Disgusted"],
                 datasets: emotionData.map((data, index) => ({
-                  label: data.date,
-                  data: Object.values(data.emotions),
-                  backgroundColor: index === 0 ? "#ff6384" : "#36a2eb",
+                  label: `${data.date} (รวม ${data.total} ครั้ง)`,
+                  data: Object.values(data.emotions).map(count => ((count / data.total) * 100).toFixed(1)),
+                  backgroundColor: index === 0 ? "#8884d8" : "#82ca9d",
                 }))
               }}
+              options={{
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                      display: true,
+                      text: 'เปอร์เซ็นต์'
+                    }
+                  }
+                }
+              }}
             />
-            <button onClick={closeModal} className="mt-4 w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg">
+            
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              {emotionData.map((data, index) => (
+                <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">{data.date}</h4>
+                  <p>จำนวนการตรวจจับทั้งหมด: {data.total}</p>
+                  {Object.entries(data.emotions).map(([emotion, count]) => (
+                    <p key={emotion}>
+                      {emotion}: {count} ({((count / data.total) * 100).toFixed(1)}%)
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={closeModal} 
+              className="mt-4 w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg"
+            >
               ปิด
             </button>
           </div>
