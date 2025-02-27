@@ -12,7 +12,6 @@ export default function TeacherPage() {
   const [previousYearCourses, setPreviousYearCourses] = useState([]);
   const [isHidden, setIsHidden] = useState(false);
   const [otherCourses, setOtherCourses] = useState([]);
-  const [isBackButtonVisible, setIsBackButtonVisible] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -96,24 +95,34 @@ export default function TeacherPage() {
   const handleCourseClick = (course) => {
     console.log('Course selected:', course);
     setSelectedCourse(course);
-  
+    
+    // Ensure all required data is present and valid
     const courseData = {
       courses_id: course.courses_id || "",
       namecourses: course.namecourses || "",
       term: course.term || "1",
       year: course.year || new Date().getFullYear() + 543
     };
-  
+    
+    console.log("Saving course data to localStorage:", courseData);
+    
+    // Use try-catch to handle potential localStorage issues
     try {
       localStorage.setItem("selectedCourse", JSON.stringify(courseData));
+      
+      // Verify data was stored properly
+      const storedData = localStorage.getItem("selectedCourse");
+      console.log("Stored course data:", storedData);
+      
+      if (!storedData) {
+        console.error("Failed to store course data in localStorage");
+      }
     } catch (error) {
       console.error("Error storing course data:", error);
     }
-  
+    
     setIsCoursePage(false);
-    setIsBackButtonVisible(true); // แสดงปุ่มย้อนกลับเมื่อเลือกวิชาแล้ว
   };
-  
 
   const handleBackClick = () => {
     console.log('Returning to course selection');
@@ -121,9 +130,7 @@ export default function TeacherPage() {
     setIsCoursePage(true);
     setSelectedCourse('');
     setOtherCourses([]);
-    setIsBackButtonVisible(false); // ซ่อนปุ่มย้อนกลับเมื่อผู้ใช้ย้อนกลับ
   };
-  
 
   const toggleHidden = () => {
     setIsHidden(!isHidden);
@@ -143,19 +150,21 @@ export default function TeacherPage() {
         <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
         {userName && <div className="text-lg font-semibold mb-4">สวัสดี {userName}</div>}
         
+        {/* เพิ่มปุ่มเลือกวิชาเปรียบเทียบตรงนี้ */}
+        {courses.length > 0 && (
+          <div className="mb-4">
+            <button 
+              onClick={() => router.push('/compare_courses')}
+              className="w-full bg-yellow-500 hover:bg-yellow-400 text-white p-2 rounded-lg shadow-md transition duration-300"
+            >
+              เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
+            </button>
+          </div>
+        )}
+        
         <hr className="border-[#305065] mb-6" />
-        
-        
-        <div className="mt-4 flex flex-col items-start space-y-2">
-  {isBackButtonVisible && (
-    <button
-      onClick={handleBackClick}
-      className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4"
-    >
-      ย้อนกลับ
-    </button>
-  )}
-</div>
+
+        {/* ย้ายเมนูในวงกลมออกไปแล้ว */}
 
         <div className="absolute bottom-4 left-0 w-full px-4">
           <button
@@ -236,55 +245,49 @@ export default function TeacherPage() {
         ) : (
           <>
             <h2 className="text-2xl font-bold mb-4">
-          ตอนนี้อยู่ในวิชา <span className="text-pink-500">{selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})</span>
-        </h2>
-            <p className="text-lg">
+              ตอนนี้อยู่ในวิชา {selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})
+            </h2>
+            <p className="text-lg mb-8">
               ภาคเรียน: {selectedCourse.term} | ปีการศึกษา: {selectedCourse.year}
             </p>
-            <p className="text-2xl font-semibold text-center mt-8">โปรดเลือกรายการทำรายการจากแถบเมนู</p>
-           
-            {selectedCourse && !isCoursePage && (
-  <div className="mt-8 flex flex-col items-center space-y-4">
-    {/* ปุ่มเปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา */}
-    
-
-    {/* ปุ่มวิเคราะห์ใบหน้า */}
-    <button
-      onClick={() => router.push('/analyze_face')}
-      className="w-1/2 bg-sky-600 hover:bg-sky-400 text-white text-xl font-semibold py-4 rounded-xl shadow-lg transition duration-300"
-    >
-      วิเคราะห์ใบหน้า
-    </button>
-
-    {/* ปุ่มผลวิเคราะห์ */}
-    <button
-      onClick={() => {
-        localStorage.setItem("userName", userName);
-        router.push("/result");
-      }}
-      className="w-1/2 bg-sky-600 hover:bg-sky-400 text-white text-xl font-semibold py-4 rounded-xl shadow-lg transition duration-300"
-    >
-      ผลวิเคราะห์
-    </button>
-
-    {/* ปุ่มเปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน */}
-    <button
-      onClick={() => router.push('/compare_result')}
-      className="w-1/2 bg-sky-600 hover:bg-sky-400 text-white text-xl font-semibold py-4 rounded-xl shadow-lg transition duration-300"
-    >
-      เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
-    </button>
-    {courses.length > 0 && (
-      <button 
-        onClick={() => router.push('/compare_courses')}
-        className="w-1/2 bg-sky-600 hover:bg-sky-400 text-white text-xl font-semibold py-4 rounded-xl shadow-lg transition duration-300"
-      >
-        เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
-      </button>
-    )}
-  </div>
-)}
-
+            
+            {/* ย้ายเมนูในวงกลมมาไว้ตรงนี้ (ตรงกลางหน้าจอ) แบบลิสต์ */}
+            <div className="border border-gray-300 rounded-lg p-8 max-w-4xl mx-auto shadow-md">
+              <h3 className="text-xl font-medium text-center mb-6">โปรดเลือกรายการทำรายการ</h3>
+              
+              <div className="flex flex-col space-y-4">
+                <button
+                  onClick={() => router.push('/analyze_face')}
+                  className="bg-sky-500 hover:bg-sky-400 text-white px-4 py-3 rounded-lg shadow-md transition duration-300"
+                >
+                  วิเคราะห์ใบหน้า
+                </button>
+                
+                <button
+                  onClick={() => {
+                    localStorage.setItem("userName", userName);
+                    router.push("/result");
+                  }}
+                  className="bg-sky-500 hover:bg-sky-400 text-white px-4 py-3 rounded-lg shadow-md transition duration-300"
+                >
+                  ผลวิเคราะห์
+                </button>
+                
+                <button
+                  onClick={() => router.push('/compare_result')}
+                  className="bg-sky-500 hover:bg-sky-400 text-white px-4 py-3 rounded-lg shadow-md transition duration-300"
+                >
+                  เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
+                </button>
+                
+                <button
+                  onClick={handleBackClick}
+                  className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-3 rounded-lg shadow-md transition duration-300"
+                >
+                  ย้อนกลับ
+                </button>
+              </div>
+            </div>
           </>
         )}
       </div>
