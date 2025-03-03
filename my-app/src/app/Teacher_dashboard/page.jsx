@@ -155,7 +155,7 @@ export default function TeacherPage() {
           <div className="mb-4">
             <button 
               onClick={() => router.push('/compare_courses')}
-              className="w-full bg-yellow-500 hover:bg-yellow-400 text-white p-2 rounded-lg shadow-md transition duration-300"
+              className="w-full bg-pink-400 hover:bg-pink-300 text-white p-2 rounded-lg shadow-md transition duration-300"
             >
               เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
             </button>
@@ -169,7 +169,7 @@ export default function TeacherPage() {
         <div className="absolute bottom-4 left-0 w-full px-4">
           <button
             onClick={handleSignOut}
-            className="w-full block py-2.5 px-4 bg-pink-400 active:bg-[#1d2f3f] focus:outline-none text-white rounded-lg"
+            className="w-full block py-2.5 px-4 bg-red-400 active:bg-[#1d2f3f] focus:outline-none text-white rounded-lg"
           >
             ออกจากระบบ
           </button>

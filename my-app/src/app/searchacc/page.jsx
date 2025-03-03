@@ -129,7 +129,7 @@ export default function AccountManagement() {
             <option value="all" disabled={selectedRole === 'all'}>เลือกบทบาท</option> {/* บทบาทที่ยังไม่ได้เลือก */}
             <option value="all">ทั้งหมด</option>
             <option value="teacher">อาจารย์ผู้สอน</option>
-            <option value="student">ผู้เรียน</option>
+          
             <option value="admin">ผู้ดูแลระบบ</option>
           </select>
           <button onClick={handleSearch} className="bg-blue-500 text-white px-4 py-2 rounded-lg">ค้นหา</button>
