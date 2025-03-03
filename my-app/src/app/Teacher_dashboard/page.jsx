@@ -184,7 +184,7 @@ export default function TeacherPage() {
             <div className="grid grid-cols-5 gap-4">
               <div className="col-span-5 mb-6">
                 <h3 className="text-xl mb-4">วิชาปีการศึกษาปัจจุบัน</h3>
-                <div className="grid grid-cols-7 gap-4">
+                <div className="grid grid-cols-5 gap-4">
                   {currentYearCourses.length > 0 ? (
                     currentYearCourses.map((course) => (
                       <button
@@ -220,7 +220,7 @@ export default function TeacherPage() {
               {!isHidden && previousYearCourses.length > 0 && (
                 <div className="col-span-5">
                   <h3 className="text-xl mb-4">วิชาปีการศึกษาเก่า</h3>
-                  <div className="grid grid-cols-5 gap-4">
+                  <div className="grid grid-cols-7 gap-4">
                     {previousYearCourses.map((course) => (
                       <button
                         key={course.courses_id}
