@@ -6,6 +6,7 @@ import { Pie } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { usePathname } from "next/navigation";
 
+
 // Register chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -13,20 +14,43 @@ const ResultPage = ({ handleSignOut }) => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [userName, setUserName] = useState("");
   const [timestamps, setTimestamps] = useState([]);
+  const [monthlyTimestamps, setMonthlyTimestamps] = useState([]);
+  const [yearlyTimestamps, setYearlyTimestamps] = useState([]);
   const [emotionData, setEmotionData] = useState(null);
   const [emotionCounts, setEmotionCounts] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedTime, setSelectedTime] = useState(null);
+  const [viewMode, setViewMode] = useState('daily');
   const router = useRouter();
+  const [selectedYear, setSelectedYear] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(null);
 
   const pathname = usePathname();
-  console.log("Current Path:", pathname);
   const isResultPage = pathname === "/result";
 
-  
-  useEffect(() => {
-    console.log("Current Path:", router.pathname);
-  }, [router.pathname]);
+  const [selectedFilterYear, setSelectedFilterYear] = useState(null);
+const [selectedFilterMonth, setSelectedFilterMonth] = useState(null);
+
+// สร้าง Function กรองข้อมูล
+const filterTimestampsByYearAndMonth = (timestamps) => {
+  return timestamps.filter(group => {
+    const date = new Date(group.date);
+    const matchYear = !selectedFilterYear || date.getFullYear() === parseInt(selectedFilterYear);
+    const matchMonth = !selectedFilterMonth || (date.getMonth() + 1) === parseInt(selectedFilterMonth);
+    return matchYear && matchMonth;
+  });
+};
+
+// ดึงรายการปีและเดือนจาก timestamps
+const getUniqueYears = () => {
+  const years = new Set(timestamps.map(group => new Date(group.date).getFullYear()));
+  return Array.from(years).sort((a, b) => b - a);
+};
+
+const getUniqueMonths = () => {
+  const months = new Set(timestamps.map(group => new Date(group.date).getMonth() + 1));
+  return Array.from(months).sort((a, b) => a - b);
+};
 
   // โหลดข้อมูลจาก LocalStorage
   useEffect(() => {
@@ -48,17 +72,31 @@ const ResultPage = ({ handleSignOut }) => {
 
   const convertToBuddhistYear = (date) => {
     const year = date.getFullYear();
-    return year + 543; // เปลี่ยนจาก ค.ศ. เป็น พ.ศ.
+    return year + 543;
   };
   
-  const formatDate = (date) => {
+  const formatDate = (date) => {  //ตั้งค่าวันนะจ้า
     const buddhistYear = convertToBuddhistYear(date);
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     const formattedDate = new Intl.DateTimeFormat('th-TH', options).format(date);
-    return `${formattedDate} พ.ศ. ${buddhistYear}`;
+    return `${formattedDate.replace(/\s\d+/, '')} พ.ศ. ${buddhistYear}`;
   };
 
-  // แปลงเวลาเป็นเวลาท้องถิ่นของไทย (Asia/Bangkok)
+  const formatMonth = (dateString) => { //ตั้งค่าเดือนนะจ้า
+    const [year, month] = dateString.split('-');
+    const date = new Date(year, month -1);
+    const buddhistYear = convertToBuddhistYear(date);
+    const options = { year: 'numeric', month: 'long' };
+    const formattedMonth = new Intl.DateTimeFormat('th-TH', options).format(date);
+    return `${formattedMonth.replace(/\s\d+/, '')} พ.ศ. ${buddhistYear}`;
+  };
+
+  const formatYear = (yearString) => {
+    const year = parseInt(yearString);
+    const buddhistYear = year + 543;
+    return `พ.ศ. ${buddhistYear}`;
+  };
+
   const convertToLocalTime = (detection_time) => {
     const date = new Date(detection_time);
     const localTime = date.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
@@ -72,7 +110,42 @@ const ResultPage = ({ handleSignOut }) => {
     }
   }, [selectedCourse]);
 
-  // ดึง timestamps จาก Supabase และจัดกลุ่มตามวันที่
+  // ฟังก์ชันในการจัดกลุ่ม timestamp ตามปี
+  const groupTimestampsByYear = (timestamps) => {
+    const grouped = {};
+  
+    timestamps.forEach((item) => {
+      const date = new Date(item.detection_time);
+      const yearString = `${date.getFullYear()}`;
+  
+      if (!grouped[yearString]) {
+        grouped[yearString] = {
+          timestamps: [],
+          startTime: item.detection_time,
+          endTime: item.detection_time,
+        };
+      }
+  
+      grouped[yearString].timestamps.push(item.detection_time);
+  
+      // หาค่าเริ่มต้นและสิ้นสุดของปี
+      if (new Date(item.detection_time) < new Date(grouped[yearString].startTime)) {
+        grouped[yearString].startTime = item.detection_time;
+      }
+      if (new Date(item.detection_time) > new Date(grouped[yearString].endTime)) {
+        grouped[yearString].endTime = item.detection_time;
+      }
+    });
+  
+    return Object.keys(grouped).map((year) => ({
+      year,
+      timestamps: grouped[year].timestamps,
+      startTime: grouped[year].startTime,
+      endTime: grouped[year].endTime,
+    }));
+  };
+
+  // ดึง timestamps และจัดกลุ่มทั้งรายวันและรายเดือน
   const fetchTimestamps = async () => {
     if (!selectedCourse) return;
   
@@ -90,12 +163,20 @@ const ResultPage = ({ handleSignOut }) => {
       // กลุ่ม detection_time ตามวันที่
       const groupedTimestamps = groupTimestampsByDate(sortedTimestamps);
       setTimestamps(groupedTimestamps);
+
+      // กลุ่ม detection_time ตามเดือน
+      const groupedMonthlyTimestamps = groupTimestampsByMonth(sortedTimestamps);
+      setMonthlyTimestamps(groupedMonthlyTimestamps);
+
+      // กลุ่ม detection_time ตามปี
+      const groupedYearlyTimestamps = groupTimestampsByYear(sortedTimestamps);
+      setYearlyTimestamps(groupedYearlyTimestamps);
     } catch (error) {
       console.error("Error fetching timestamps:", error.message);
     }
   };
   
-  // ฟังก์ชันในการจัดกลุ่ม timestamp ตามวัน
+  // ฟังก์ชันในการจัดกลุ่ม timestamp ตามวัน (เดิม)
   const groupTimestampsByDate = (timestamps) => {
     const grouped = {};
   
@@ -132,28 +213,86 @@ const ResultPage = ({ handleSignOut }) => {
     }));
   };
 
-  // ปรับปรุงฟังก์ชันดึงข้อมูลอารมณ์เพื่อคำนวณตามโลจิกของ prepareComparisonData
-  const fetchEmotionData = async (date) => {
-    if (!selectedCourse || !date) return;
+  // ฟังก์ชันในการจัดกลุ่ม timestamp ตามเดือน (เดิม)
+  const groupTimestampsByMonth = (timestamps) => {
+    const grouped = {};
+  
+    timestamps.forEach((item) => {
+      const date = new Date(item.detection_time);
+      const monthString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  
+      if (!grouped[monthString]) {
+        grouped[monthString] = {
+          timestamps: [],
+          startTime: item.detection_time,
+          endTime: item.detection_time,
+        };
+      }
+  
+      grouped[monthString].timestamps.push(item.detection_time);
+  
+      // อัปเดตเวลาเริ่มต้นและสิ้นสุด
+      grouped[monthString].startTime = new Date(Math.min(
+        new Date(grouped[monthString].startTime),
+        new Date(item.detection_time)
+      )).toISOString();
+  
+      grouped[monthString].endTime = new Date(Math.max(
+        new Date(grouped[monthString].endTime),
+        new Date(item.detection_time)
+      )).toISOString();
+    });
+  
+    return Object.keys(grouped).map((month) => ({
+      month,
+      timestamps: grouped[month].timestamps,
+      startTime: grouped[month].startTime,
+      endTime: grouped[month].endTime,
+    }));
+  };
+
+  // ปรับปรุงฟังก์ชันดึงข้อมูลอารมณ์ให้รองรับการดึงข้อมูลรายปี
+  const fetchEmotionData = async (period, periodType = 'daily') => {
+    console.log('Fetching Emotion Data:', { period, periodType });
+  
+    if (!selectedCourse || !period) return;
   
     try {
-      const startOfDay = new Date(date);
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setDate(startOfDay.getDate() + 1);
+      let startOfPeriod, endOfPeriod;
+      
+      if (periodType === 'yearly') {
+        const year = parseInt(period);
+        startOfPeriod = new Date(year, 0, 1);
+        endOfPeriod = new Date(year, 11, 31, 23, 59, 59, 999);
+        setSelectedYear(period);
+      } else if (periodType === 'monthly') {
+        const [year, month] = period.split('-').map(Number);
+        console.log('Monthly Period Details:', { year, month });
+        
+        startOfPeriod = new Date(year, month - 1, 1);
+        endOfPeriod = new Date(year, month, 0);
+        endOfPeriod.setHours(23, 59, 59, 999);
+        
+        setSelectedMonth(period);
+      } else {
+        startOfPeriod = new Date(period);
+        endOfPeriod = new Date(startOfPeriod);
+        endOfPeriod.setDate(startOfPeriod.getDate() + 1);
+      }
   
-      const startOfDayISO = startOfDay.toISOString();
-      const endOfDayISO = endOfDay.toISOString();
+      const startOfPeriodISO = startOfPeriod.toISOString();
+      const endOfPeriodISO = endOfPeriod.toISOString();
   
       const { data, error } = await supabase
         .from("emotion_detection")
         .select("emotion")
         .eq("courses_id", selectedCourse.courses_id)
-        .gte("detection_time", startOfDayISO)
-        .lt("detection_time", endOfDayISO);
+        .gte("detection_time", startOfPeriodISO)
+        .lt("detection_time", endOfPeriodISO);
   
       if (error) throw error;
   
-      // Map for counting emotions
+      // เตรียมข้อมูลอารมณ์
       const emotions = {
         Happy: 0,
         Sad: 0,
@@ -164,7 +303,6 @@ const ResultPage = ({ handleSignOut }) => {
         Disgusted: 0,
       };
       
-      // Mapping from API response to our emotion keys
       const emotionMapping = {
         'Happiness': 'Happy',
         'Sadness': 'Sad',
@@ -175,7 +313,7 @@ const ResultPage = ({ handleSignOut }) => {
         'Disgusted': 'Disgusted'
       };
 
-      // Count emotions
+      // นับอารมณ์
       data.forEach((item) => {
         const mappedEmotion = emotionMapping[item.emotion] || item.emotion;
         if (mappedEmotion in emotions) {
@@ -183,7 +321,7 @@ const ResultPage = ({ handleSignOut }) => {
         }
       });
       
-      // คำนวณเปอร์เซ็นต์แบบเดียวกับ prepareComparisonData
+      // คำนวณเปอร์เซ็นต์
       const totalDetections = data.length;
       const emotionPercentages = {};
       
@@ -194,9 +332,9 @@ const ResultPage = ({ handleSignOut }) => {
         emotionPercentages[emotion] = parseFloat(percent.toFixed(1));
       }
       
-      setEmotionCounts(emotions); // เก็บจำนวนตรวจพบของแต่ละอารมณ์
-      setEmotionData(emotionPercentages); // เก็บเปอร์เซ็นต์ของแต่ละอารมณ์
-      setSelectedTime({ start: startOfDayISO, end: endOfDayISO });
+      setEmotionCounts(emotions);
+      setEmotionData(emotionPercentages);
+      setSelectedTime({ start: startOfPeriodISO, end: endOfPeriodISO });
       setShowModal(true);
     } catch (error) {
       console.error("Error fetching emotion data:", error.message);
@@ -211,10 +349,10 @@ const ResultPage = ({ handleSignOut }) => {
   if (!selectedCourse) {
     return <p className="text-center mt-10 text-xl">กำลังโหลดข้อมูล...</p>;
   }
-  console.log("Emotion Data:", emotionData);
-  
+
   return (
     <div className="flex min-h-screen">
+      {/* ส่วนของ sidebar */}
       <div className="w-64 bg-sky-200 text-black p-4 relative flex flex-col">
         <h1 className="text-2xl font-bold mb-4">ClassMood Insight</h1>
         {userName && <div className="text-lg font-semibold mb-4">สวัสดี {userName}</div>}
@@ -230,7 +368,12 @@ const ResultPage = ({ handleSignOut }) => {
           <button onClick={() => router.push("/compare_result")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
             เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
           </button>
-          {/* ลบปุ่ม "เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา" */}
+          <button 
+            onClick={() => router.push('/compare_courses')}
+            className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md "
+          >
+            เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
+          </button>
           <button onClick={() => router.push("/Teacher_dashboard")} className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4">
             ย้อนกลับ
           </button>
@@ -239,7 +382,7 @@ const ResultPage = ({ handleSignOut }) => {
         <div className="sticky bottom-4 left-0 w-full px-4">
           <button
             onClick={handleSignOut}
-            className="w-full py-2 px-4 bg-pink-400  active:bg-[#1d2f3f] text-white rounded-lg"
+            className="w-full py-2 px-4 bg-pink-400 active:bg-[#1d2f3f] text-white rounded-lg"
           >
             ออกจากระบบ
           </button>
@@ -248,12 +391,11 @@ const ResultPage = ({ handleSignOut }) => {
 
       {/* เนื้อหาหลัก */}
       <div className="flex-1 p-8 overflow-y-auto">
-      <h2 className="text-2xl font-bold mb-4">
+        <h2 className="text-2xl font-bold mb-4">
           ตอนนี้อยู่ในวิชา <span className="text-pink-500">{selectedCourse.namecourses} (รหัส: {selectedCourse.courses_id})</span>
         </h2>
         <p className="text-lg">ภาคเรียน: {selectedCourse.term} | ปีการศึกษา: {selectedCourse.year}</p>
 
-        {/* เพิ่มข้อความที่ต้องการแสดง */}
         {isResultPage && (
           <h3 className="text-xl mt-4 mb-4">
             <span className="bg-pink-200 px-2 py-1 rounded">
@@ -262,25 +404,113 @@ const ResultPage = ({ handleSignOut }) => {
           </h3>
         )}
 
-        {/* แสดงรายการปุ่ม timestamp ที่จัดกลุ่มตามวัน */}
+        {/* ปุ่มสลับโหมดการดู */}
+         <div className="my-4 flex space-x-4">
+          <button
+            onClick={() => setViewMode('daily')}
+            className={`px-4 py-2 rounded-lg ${
+              viewMode === 'daily'
+                ? 'bg-pink-500 text-white'
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            ดูผลวิเคราะห์รายวัน
+          </button>
+          <button
+            onClick={() => setViewMode('monthly')}
+            className={`px-4 py-2 rounded-lg ${
+              viewMode === 'monthly'
+                ? 'bg-pink-500 text-white'
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            ดูผลวิเคราะห์รายเดือน
+          </button>
+          <button
+            onClick={() => setViewMode('yearly')}
+            className={`px-4 py-2 rounded-lg ${
+              viewMode === 'yearly'
+                ? 'bg-pink-500 text-white'
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            ดูผลวิเคราะห์รายปี
+          </button>
+        </div>
+  
+        {/* แสดงรายการปุ่ม timestamp */}
         <div className="mt-6 space-y-4">
           <h3 className="text-xl font-semibold mb-3">เลือกวัน/เวลาที่ต้องการดูผลวิเคราะห์</h3>
           
-          {timestamps.length > 0 ? (
+          
+          {viewMode === 'daily' && timestamps.length > 0 ? (
+  <div>
+    {/* Group timestamps by month */}
+    {Object.entries(
+      timestamps.reduce((acc, group) => {
+        const monthKey = new Date(group.date).toLocaleString('default', { year: 'numeric', month: 'long' });
+        if (!acc[monthKey]) acc[monthKey] = [];
+        acc[monthKey].push(group);
+        return acc;
+      }, {})
+    ).map(([month, monthGroups]) => (
+      <div key={month} className="mb-6">
+        <h4 className="bg-pink-100 px-2 py-1 rounded text-xl font-semibold text-gray-700 mb-4">{month}</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {monthGroups.map((group, index) => (
+            <div key={index} className="space-y-2">
+              <p className="text-lg font-semibold text-gray-700">
+                {formatDate(new Date(group.date))}
+              </p>
+              <button
+                onClick={() => fetchEmotionData(group.date, 'daily')}
+                className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
+                </svg>
+                <span>วันที่และเวลา : {convertToLocalTime(group.startTime)} ถึง {new Date(group.endTime).toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+          ) : viewMode === 'monthly' && monthlyTimestamps.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {timestamps.map((group, index) => (
+              {monthlyTimestamps.map((group, index) => (
                 <div key={index} className="space-y-2">
                   <p className="text-lg font-semibold text-gray-700">
-                    {formatDate(new Date(group.date))}
+                    {formatMonth(group.month)}
                   </p>
                   <button
-                    onClick={() => fetchEmotionData(group.date)}
+                    onClick={() => fetchEmotionData(group.month, 'monthly')}
                     className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
                     </svg>
-                    <span>วันที่และเวลา : {convertToLocalTime(group.startTime)} ถึง {new Date(group.endTime).toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                    <span>ช่วงเวลา: {convertToLocalTime(group.startTime)} ถึง {convertToLocalTime(group.endTime)}</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : viewMode === 'yearly' && yearlyTimestamps.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {yearlyTimestamps.map((group, index) => (
+                <div key={index} className="space-y-2">
+                  <p className="text-lg font-semibold text-gray-700">
+                    {formatYear(group.year)}
+                  </p>
+                  <button
+                    onClick={() => fetchEmotionData(group.year, 'yearly')}
+                    className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
+                    </svg>
+                    <span>ช่วงเวลา: {convertToLocalTime(group.startTime)} ถึง {convertToLocalTime(group.endTime)}</span>
                   </button>
                 </div>
               ))}
@@ -292,111 +522,116 @@ const ResultPage = ({ handleSignOut }) => {
       </div>
 
       {/* ป๊อปอัพแสดงกราฟพายด้วยข้อมูลที่คำนวณตามแบบ prepareComparisonData */}
-{showModal && emotionData && (
-  <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-700 bg-opacity-50 flex justify-center items-center z-50">
-    <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-6xl h-5/6 relative flex flex-col p-6">
-      <h3 className="text-2xl font-semibold mb-6">
-        กราฟแสดงผลอารมณ์ระหว่าง {formatDate(new Date(selectedTime.start))}
-      </h3>
-      
-      <div className="flex-grow overflow-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
-          <div className="flex items-center justify-center h-full">
-            <div className="w-full h-full" style={{ minHeight: "400px" }}>
-              <Pie
-                data={{
-                  labels: ["ความสุข", "ความเศร้า", "ความโกรธ", "ความกลัว", "ความประหลาดใจ", "เป็นกลาง", "ความรังเกียจ"],
-                  datasets: [
-                    {
-                      data: [
-                        emotionData.Happy,
-                        emotionData.Sad,
-                        emotionData.Angry,
-                        emotionData.Fearful,
-                        emotionData.Surprised,
-                        emotionData.Neutral,
-                        emotionData.Disgusted,
-                      ],
-                      backgroundColor: ["#FFF37F", "#A8C6FD", "#FFA7A7", "#B1B1B1", "#F0B1FB", "#E3E3E3", "#B3FDC2"],
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    tooltip: {
-                      bodyFont: {
-                        size: 16
-                      },
-                      callbacks: {
-                        label: (context) => `${context.label}: ${context.raw}%`,
-                      },
-                    },
-                    legend: {
-                      position: 'bottom',
-                      labels: {
-                        padding: 20,
-                        font: {
-                          size: 16
-                        }
-                      }
-                    }
-                  },
-                }}
-                height={400}
-              />
+      {showModal && emotionData && (
+        <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-700 bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-6xl h-5/6 relative flex flex-col p-6">
+            <h3 className="text-2xl font-semibold mb-6">
+              กราฟแสดงผลอารมณ์ {
+                viewMode === 'daily' 
+                  ? formatDate(new Date(selectedTime.start)) 
+                  : viewMode === 'monthly'
+                    ? formatMonth(selectedMonth)
+                    : formatYear(selectedYear)
+              }
+            </h3>
+            
+            <div className="flex-grow overflow-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
+                <div className="flex items-center justify-center h-full">
+                  <div className="w-full h-full" style={{ minHeight: "400px" }}>
+                    <Pie
+                      data={{
+                        labels: ["ความสุข", "ความเศร้า", "ความโกรธ", "ความกลัว", "ความประหลาดใจ", "เป็นกลาง", "ความรังเกียจ"],
+                        datasets: [
+                          {
+                            data: [
+                              emotionData.Happy,
+                              emotionData.Sad,
+                              emotionData.Angry,
+                              emotionData.Fearful,
+                              emotionData.Surprised,
+                              emotionData.Neutral,
+                              emotionData.Disgusted,
+                            ],
+                            backgroundColor: ["#FFF37F", "#A8C6FD", "#FFA7A7", "#B1B1B1", "#F0B1FB", "#E3E3E3", "#B3FDC2"],
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          tooltip: {
+                            bodyFont: {
+                              size: 16
+                            },
+                            callbacks: {
+                              label: (context) => `${context.label}: ${context.raw}%`,
+                            },
+                          },
+                          legend: {
+                            position: 'bottom',
+                            labels: {
+                              padding: 20,
+                              font: {
+                                size: 16
+                              }
+                            }
+                          }
+                        },
+                      }}
+                      height={400}
+                    />
+                  </div>
+                </div>
+                
+                <div className="p-4 flex flex-col h-full">
+                  <h4 className="text-xl font-semibold mb-4">รายละเอียดอารมณ์</h4>
+                  <div className="overflow-auto flex-grow">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border px-4 py-3 text-left">อารมณ์</th>
+                          <th className="border px-4 py-3 text-right">เปอร์เซ็นต์</th>
+                          <th className="border px-4 py-3 text-right">จำนวนที่ตรวจจับได้</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {emotionCounts && Object.keys(emotionCounts).map((emotion, index) => {
+                          const emotionToThai = {
+                            "Happy": "ความสุข",
+                            "Sad": "ความเศร้า",
+                            "Angry": "ความโกรธ",
+                            "Fearful": "ความกลัว",
+                            "Surprised": "ความประหลาดใจ",
+                            "Neutral": "เป็นกลาง",
+                            "Disgusted": "ความรังเกียจ"
+                          };
+                          
+                          return (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+                              <td className="border px-4 py-3 text-lg">{emotionToThai[emotion]}</td>
+                              <td className="border px-4 py-3 text-right text-lg">{emotionData[emotion]}%</td>
+                              <td className="border px-4 py-3 text-right text-lg">{emotionCounts[emotion]}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <div className="p-4 flex flex-col h-full">
-            <h4 className="text-xl font-semibold mb-4">รายละเอียดอารมณ์</h4>
-            <div className="overflow-auto flex-grow">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border px-4 py-3 text-left">อารมณ์</th>
-                    <th className="border px-4 py-3 text-right">เปอร์เซ็นต์</th>
-                    <th className="border px-4 py-3 text-right">จำนวนที่ตรวจจับได้</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {emotionCounts && Object.keys(emotionCounts).map((emotion, index) => {
-                    // ใช้ emotionToThai mapping
-                    const emotionToThai = {
-                      "Happy": "ความสุข",
-                      "Sad": "ความเศร้า",
-                      "Angry": "ความโกรธ",
-                      "Fearful": "ความกลัว",
-                      "Surprised": "ความประหลาดใจ",
-                      "Neutral": "เป็นกลาง",
-                      "Disgusted": "ความรังเกียจ"
-                    };
-                    
-                    return (
-                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                        <td className="border px-4 py-3 text-lg">{emotionToThai[emotion]}</td>
-                        <td className="border px-4 py-3 text-right text-lg">{emotionData[emotion]}%</td>
-                        <td className="border px-4 py-3 text-right text-lg">{emotionCounts[emotion]}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            
+            <button
+              onClick={closeModal}
+              className="mt-6 py-3 bg-red-500 hover:bg-red-600 text-white text-lg font-semibold rounded-lg"
+            >
+              ปิด
+            </button>
           </div>
         </div>
-      </div>
-      
-      <button
-        onClick={closeModal}
-        className="mt-6 py-3 bg-red-500 hover:bg-red-600 text-white text-lg font-semibold rounded-lg"
-      >
-        ปิด
-      </button>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };
