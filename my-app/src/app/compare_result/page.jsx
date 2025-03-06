@@ -27,6 +27,7 @@ const CompareResultPage = ({ handleSignOut }) => {
   const isResultPage = pathname === "/compare_result";
   
   // แปลงชื่ออารมณ์เป็นภาษาไทย
+  // สร้างอ็อบเจ็กต์สำหรับแปลอารมณ์จากภาษาอังกฤษเป็นภาษาไทย
   const emotionTranslation = {
     "Happiness": "ความสุข",
     "Sadness": "ความเศร้า",
@@ -38,31 +39,33 @@ const CompareResultPage = ({ handleSignOut }) => {
   };
   
   // แปลงวันที่ให้เป็นรูปแบบไทย (พ.ศ.)
+  // ฟังก์ชันแปลงวันที่ (รูปแบบ YYYY-MM-DD) ให้เป็นรูปแบบไทย (วัน/เดือน/พ.ศ.)
   const formatThaiDate = (dateString) => {
     if (!dateString) return "";
     
-    const date = new Date(dateString);
-    const thaiYear = date.getFullYear() + 543;
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
+    const date = new Date(dateString); // แปลงสตริงวันที่ให้เป็นอ็อบเจ็กต์ Date
+    const thaiYear = date.getFullYear() + 543;  // คำนวณปี พ.ศ. (ปี ค.ศ. + 543)
+    const month = date.getMonth() + 1;  // ได้ค่าตั้งแต่ 0-11 จึงต้อง +1 เพื่อให้ได้ 1-12
+    const day = date.getDate(); // ดึงค่าวันที่
     
     // รูปแบบ: วัน/เดือน/พ.ศ.
     return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${thaiYear}`;
   };
   
   // แปลงเดือนเป็นรูปแบบไทย
+  // ฟังก์ชันแปลงเดือน (รูปแบบ YYYY-MM) ให้เป็นชื่อเดือนแบบไทย
   const formatThaiMonth = (yearMonth) => {
     if (!yearMonth) return "";
     
-    const [year, month] = yearMonth.split('-');
+    const [year, month] = yearMonth.split('-'); // แยกปีและเดือนออกจากกัน
     const thaiYear = parseInt(year) + 543;
     
-    const thaiMonths = [
+    const thaiMonths = [  // รายชื่อเดือนภาษาไทย
       "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", 
       "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
     ];
     
-    return `${thaiMonths[parseInt(month) - 1]} ${thaiYear}`;
+    return `${thaiMonths[parseInt(month) - 1]} ${thaiYear}`;   // คืนค่าชื่อเดือนภาษาไทยและปี พ.ศ.
   };
 
   // แปลงปีเป็นรูปแบบไทย (พ.ศ.)
@@ -110,7 +113,7 @@ const CompareResultPage = ({ handleSignOut }) => {
     }
   }, [router]);
 
-  useEffect(() => {
+  useEffect(() => { // useEffect ใช้ดึงข้อมูล timestamps, เดือนที่มีข้อมูล และปีที่มีข้อมูล เมื่อคอร์สที่เลือกเปลี่ยนแปลง
     if (selectedCourse) {
       fetchTimestamps();
       fetchAvailableMonths();
@@ -118,16 +121,16 @@ const CompareResultPage = ({ handleSignOut }) => {
     }
   }, [selectedCourse]);
 
-  const fetchTimestamps = async () => {
+  const fetchTimestamps = async () => {  // ฟังก์ชันดึงข้อมูล timestamps ของการตรวจจับอารมณ์
     if (!selectedCourse) return;
     try {
       const { data, error } = await supabase
         .from("emotion_detection")
         .select("detection_time")
-        .eq("courses_id", selectedCourse.courses_id);
+        .eq("courses_id", selectedCourse.courses_id); // กรองเฉพาะข้อมูลที่เป็นของคอร์สที่เลือก
 
       if (error) throw error;
-
+       // ดึงเฉพาะวันที่จาก timestamp และกำจัดค่าซ้ำ
       const groupedTimestamps = [...new Set(data.map(item => item.detection_time.split('T')[0]))];
       setTimestamps(groupedTimestamps);
     } catch (error) {
@@ -135,7 +138,7 @@ const CompareResultPage = ({ handleSignOut }) => {
     }
   };
 
-  const fetchAvailableMonths = async () => {
+  const fetchAvailableMonths = async () => { // ฟังก์ชันดึงข้อมูลเดือนที่มีอยู่ในฐานข้อมูล
     if (!selectedCourse) return;
     try {
       const { data, error } = await supabase
@@ -147,17 +150,17 @@ const CompareResultPage = ({ handleSignOut }) => {
 
       // Extract year-month format (YYYY-MM) from timestamps
       const months = [...new Set(data.map(item => {
-        const datePart = item.detection_time.split('T')[0];
+        const datePart = item.detection_time.split('T')[0];  // ดึงเฉพาะปี-เดือน (YYYY-MM) และกำจัดค่าซ้ำ
         return datePart.substring(0, 7); // Get YYYY-MM part
       }))];
       
-      setAvailableMonths(months.sort()); // Sort chronologically
+      setAvailableMonths(months.sort()); // ตั้งค่าข้อมูลเดือนและเรียงลำดับ
     } catch (error) {
       console.error("Error fetching available months:", error.message);
     }
   };
 
-  const fetchAvailableYears = async () => {
+  const fetchAvailableYears = async () => { // ฟังก์ชันดึงข้อมูลปีที่มีอยู่ในฐานข้อมูล
     if (!selectedCourse) return;
     try {
       const { data, error } = await supabase
@@ -169,20 +172,20 @@ const CompareResultPage = ({ handleSignOut }) => {
 
       // Extract year format (YYYY) from timestamps
       const years = [...new Set(data.map(item => {
-        const datePart = item.detection_time.split('T')[0];
+        const datePart = item.detection_time.split('T')[0];  // ดึงเฉพาะปี (YYYY) และกำจัดค่าซ้ำ
         return datePart.substring(0, 4); // Get YYYY part
       }))];
       
-      setAvailableYears(years.sort()); // Sort chronologically
+      setAvailableYears(years.sort());  // ตั้งค่าข้อมูลปีและเรียงลำดับ
     } catch (error) {
       console.error("Error fetching available years:", error.message);
     }
   };
 
-  const fetchEmotionData = async () => {
-    if (comparisonType === "daily" && selectedDates.length !== 2) return;
-    if (comparisonType === "monthly" && selectedMonths.length !== 2) return;
-    if (comparisonType === "yearly" && selectedYears.length !== 2) return;
+  const fetchEmotionData = async () => { // ฟังก์ชันดึงข้อมูลอารมณ์ตามช่วงเวลา (รายวัน, รายเดือน, รายปี)
+    if (comparisonType === "daily" && selectedDates.length !== 2) return; // ถ้าเลือกชนิดการเปรียบเทียบเป็นรายวันแต่ไม่ได้เลือกวันที่ 2 วัน ให้หยุดการทำงาน
+    if (comparisonType === "monthly" && selectedMonths.length !== 2) return; // ถ้าเลือกชนิดการเปรียบเทียบเป็นรายเดือนแต่ไม่ได้เลือกเดือน 2 เดือน ให้หยุดการทำงาน
+    if (comparisonType === "yearly" && selectedYears.length !== 2) return; // ถ้าเลือกชนิดการเปรียบเทียบเป็นรายปีแต่ไม่ได้เลือกปี 2 ปี ให้หยุดการทำงาน
     
     try {
       let dataPromises;
@@ -204,7 +207,7 @@ const CompareResultPage = ({ handleSignOut }) => {
           
           data.forEach((item) => {
             if (item.emotion in emotions) {
-              emotions[item.emotion] += 1;
+              emotions[item.emotion] += 1; // เพิ่มจำนวนอารมณ์ที่ตรงกับประเภท
             }
           });
 
@@ -212,7 +215,7 @@ const CompareResultPage = ({ handleSignOut }) => {
             date, 
             formattedDate: formatThaiDate(date),
             emotions,
-            total: data.length 
+            total: data.length  // จำนวนข้อมูลทั้งหมดในวันนั้น
           };
         });
       } else if (comparisonType === "monthly") { // monthly comparison
@@ -291,11 +294,11 @@ const CompareResultPage = ({ handleSignOut }) => {
   };
 
   const toggleComparisonType = (type) => {
-    setComparisonType(type);
+    setComparisonType(type);  // เปลี่ยนประเภทการเปรียบเทียบ (daily, monthly, yearly)
     // Reset selections when switching comparison types
-    if (type === "daily") {
-      setSelectedMonths([]);
-      setSelectedYears([]);
+    if (type === "daily") { // ถ้าประเภทที่เลือกเป็น "daily" ให้เคลียร์การเลือกเดือนและปี
+      setSelectedMonths([]); // รีเซ็ตการเลือกเดือน
+      setSelectedYears([]); // รีเซ็ตการเลือกปี
     } else if (type === "monthly") {
       setSelectedDates([]);
       setSelectedYears([]);
@@ -309,28 +312,29 @@ const CompareResultPage = ({ handleSignOut }) => {
   const groupDatesByMonth = () => {
     const groups = {};
     timestamps.forEach(date => {
-      const yearMonth = date.substring(0, 7); // Get YYYY-MM part
-      if (!groups[yearMonth]) {
+      const yearMonth = date.substring(0, 7); // ดึงส่วนปีและเดือนจากวันที่ (YYYY-MM)
+      if (!groups[yearMonth]) { // ถ้ายังไม่มีการกลุ่มในปี-เดือนนั้น ให้สร้างอาร์เรย์ขึ้นมาใหม่
         groups[yearMonth] = [];
       }
-      groups[yearMonth].push(date);
+      groups[yearMonth].push(date);  // เพิ่มวันที่เข้าไปในกลุ่มปี-เดือนนั้น
     });
-    return groups;
+    return groups; // คืนค่ากลุ่มวันที่ที่จัดกลุ่มตามเดือน
   };
 
   // จัดกลุ่มเดือนตามปี
   const groupMonthsByYear = () => {
     const groups = {};
     availableMonths.forEach(month => {
-      const year = month.substring(0, 4); // Get YYYY part
-      if (!groups[year]) {
+      const year = month.substring(0, 4);  // ดึงส่วนปีจากเดือน (YYYY)
+      if (!groups[year]) {  // ถ้ายังไม่มีการกลุ่มในปีนั้น ให้สร้างอาร์เรย์ขึ้นมาใหม่
         groups[year] = [];
       }
-      groups[year].push(month);
+      groups[year].push(month); // เพิ่มเดือนเข้าไปในกลุ่มปีนั้น
     });
     return groups;
   };
 
+  // เรียกใช้ฟังก์ชันเพื่อจัดกลุ่มวันที่และเดือน
   const dateGroups = groupDatesByMonth();
   const monthGroups = groupMonthsByYear();
 
@@ -365,7 +369,7 @@ const CompareResultPage = ({ handleSignOut }) => {
         <div className="sticky bottom-4 left-0 w-full px-4">
           <button
             onClick={handleSignOut}
-            className="w-full py-2 px-4 bg-pink-400 active:bg-[#1d2f3f] text-white rounded-lg"
+            className="w-full block py-2.5 px-4 bg-red-400 active:bg-[#1d2f3f] focus:outline-none text-white rounded-lg"
           >
             ออกจากระบบ
           </button>
@@ -420,7 +424,7 @@ const CompareResultPage = ({ handleSignOut }) => {
     <button 
       onClick={fetchEmotionData} 
       className="bg-sky-600 hover:bg-sky-400 text-white py-2 px-4 rounded-lg"
-      disabled={(comparisonType === "daily" && selectedDates.length !== 2) || 
+      disabled={(comparisonType === "daily" && selectedDates.length !== 2) || // ถ้า comparisonType เป็น "daily" และยังไม่ได้เลือกวันที่ 2 วัน
                 (comparisonType === "monthly" && selectedMonths.length !== 2) ||
                 (comparisonType === "yearly" && selectedYears.length !== 2)}
     >
@@ -435,13 +439,13 @@ const CompareResultPage = ({ handleSignOut }) => {
               
               {/* จัดการแสดงผลวันที่แบ่งตามเดือน */}
               {Object.entries(dateGroups)
-      .sort(([a], [b]) => a.localeCompare(b)) // Sort by year-month
+      .sort(([a], [b]) => a.localeCompare(b)) // เรียงวันที่ตามปี-เดือน
       .map(([yearMonth, dates]) => (
         <div key={yearMonth} className="mb-4">
           <h4 className="bg-pink-100 px-2 py-1 rounded text-xl font-semibold text-gray-700 mb-4">{formatThaiMonth(yearMonth)}</h4>
           <div className="grid grid-cols-5 gap-4">
             {dates
-              .sort((a, b) => a.localeCompare(b)) // Sort days chronologically
+              .sort((a, b) => a.localeCompare(b)) // เรียงวันที่ตามลำดับเวลา
               .map((date, index) => (
                 <button 
                   key={index}
@@ -493,7 +497,7 @@ const CompareResultPage = ({ handleSignOut }) => {
             <>
               <p>กรุณาเลือกปีจำนวน 2 ปี</p>
               <div className="grid grid-cols-4 gap-4">
-                {availableYears.map((year, index) => (
+                {availableYears.map((year, index) => (  //วนลูปผ่านปีที่มีอยู่ใน availableYears
                   <button 
                     key={index}
                     onClick={() => setSelectedYears(prev => prev.includes(year) ? prev.filter(y => y !== year) : [...prev.slice(-1), year])}
