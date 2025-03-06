@@ -69,8 +69,8 @@ const getUniqueMonths = () => {
       router.push("/teacher_dashboard");
     }
   }, [router]);
-
-  const convertToBuddhistYear = (date) => {
+ 
+  const convertToBuddhistYear = (date) => {   //แปลงค.ศ เป็น พ.ศ จ้า
     const year = date.getFullYear();
     return year + 543;
   };
@@ -145,7 +145,7 @@ const getUniqueMonths = () => {
     }));
   };
 
-  // ดึง timestamps และจัดกลุ่มทั้งรายวันและรายเดือน
+  // ดึง detection_time และจัดกลุ่มทั้งรายวันและรายเดือน
   const fetchTimestamps = async () => {
     if (!selectedCourse) return;
   
@@ -252,32 +252,32 @@ const getUniqueMonths = () => {
   };
 
   // ปรับปรุงฟังก์ชันดึงข้อมูลอารมณ์ให้รองรับการดึงข้อมูลรายปี
-  const fetchEmotionData = async (period, periodType = 'daily') => {
-    console.log('Fetching Emotion Data:', { period, periodType });
+  const fetchEmotionData = async (period, periodType = 'daily') => {  
+    console.log('Fetching Emotion Data:', { period, periodType });  // แสดงข้อมูลช่วงเวลาที่กำลังดึงข้อมูลอารมณ์
   
     if (!selectedCourse || !period) return;
   
     try {
-      let startOfPeriod, endOfPeriod;
+      let startOfPeriod, endOfPeriod;  // กำหนดตัวแปรสำหรับช่วงเวลาเริ่มต้นและสิ้นสุด
       
-      if (periodType === 'yearly') {
-        const year = parseInt(period);
-        startOfPeriod = new Date(year, 0, 1);
-        endOfPeriod = new Date(year, 11, 31, 23, 59, 59, 999);
+      if (periodType === 'yearly') {    // ถ้าประเภทช่วงเวลาเป็นรายปี
+        const year = parseInt(period);   // แปลงค่าปีจาก string เป็นตัวเลข
+        startOfPeriod = new Date(year, 0, 1);       //วันที่เริ่มต้นของปี 0 คือ มกราคม ,1 คือวันที่ 1
+        endOfPeriod = new Date(year, 11, 31, 23, 59, 59, 999);    //11 คือ ธันวาคม 31 คือวันที่สุดท้าย 23:59:59:999 คือเวลา
         setSelectedYear(period);
-      } else if (periodType === 'monthly') {
-        const [year, month] = period.split('-').map(Number);
+      } else if (periodType === 'monthly') {    // ถ้าประเภทช่วงเวลาเป็นรายเดือน
+        const [year, month] = period.split('-').map(Number); // แยกค่าปีและเดือนจาก string และแปลงเป็นตัวเลข
         console.log('Monthly Period Details:', { year, month });
         
-        startOfPeriod = new Date(year, month - 1, 1);
-        endOfPeriod = new Date(year, month, 0);
-        endOfPeriod.setHours(23, 59, 59, 999);
+        startOfPeriod = new Date(year, month - 1, 1); // วันที่เริ่มต้นของเดือน (JavaScript ใช้ index เดือนเริ่มที่ 0)
+        endOfPeriod = new Date(year, month, 0);  // วันที่สิ้นสุดของเดือน (ใส่วันที่ 0 จะได้วันสุดท้ายของเดือนก่อนหน้า)
+        endOfPeriod.setHours(23, 59, 59, 999);  // กำหนดเวลาเป็น 23:59:59.999
         
-        setSelectedMonth(period);
-      } else {
-        startOfPeriod = new Date(period);
-        endOfPeriod = new Date(startOfPeriod);
-        endOfPeriod.setDate(startOfPeriod.getDate() + 1);
+        setSelectedMonth(period);  // บันทึกเดือนที่เลือก
+      } else {  // ถ้าเป็นช่วงเวลารายวัน
+        startOfPeriod = new Date(period);   // แปลงค่า period เป็น Date
+        endOfPeriod = new Date(startOfPeriod);    // คัดลอกค่าจาก startOfPeriod
+        endOfPeriod.setDate(startOfPeriod.getDate() + 1);  // กำหนดให้ช่วงเวลาสิ้นสุดเป็นวันถัดไป
       }
   
       const startOfPeriodISO = startOfPeriod.toISOString();
@@ -286,14 +286,14 @@ const getUniqueMonths = () => {
       const { data, error } = await supabase
         .from("emotion_detection")
         .select("emotion")
-        .eq("courses_id", selectedCourse.courses_id)
-        .gte("detection_time", startOfPeriodISO)
-        .lt("detection_time", endOfPeriodISO);
+        .eq("courses_id", selectedCourse.courses_id)  // ค้นหาข้อมูลที่ตรงกับคอร์สที่เลือก
+        .gte("detection_time", startOfPeriodISO)   // กรองข้อมูลที่มีเวลามากกว่าหรือเท่ากับ startOfPeriod
+        .lt("detection_time", endOfPeriodISO);  // กรองข้อมูลที่มีเวลาน้อยกว่า endOfPeriod
   
       if (error) throw error;
   
       // เตรียมข้อมูลอารมณ์
-      const emotions = {
+      const emotions = {   //สร้างตัวแปรเก็บค่าอารมณ์ โดยเริ่มจาก 0
         Happy: 0,
         Sad: 0,
         Angry: 0,
@@ -303,7 +303,7 @@ const getUniqueMonths = () => {
         Disgusted: 0,
       };
       
-      const emotionMapping = {
+      const emotionMapping = {  //สร้างตัวแปร emotionMapping เพื่อแมปชื่ออารมณ์
         'Happiness': 'Happy',
         'Sadness': 'Sad',
         'Anger': 'Angry',
@@ -314,28 +314,28 @@ const getUniqueMonths = () => {
       };
 
       // นับอารมณ์
-      data.forEach((item) => {
-        const mappedEmotion = emotionMapping[item.emotion] || item.emotion;
-        if (mappedEmotion in emotions) {
-          emotions[mappedEmotion] += 1;
+      data.forEach((item) => {    //ใช้ .forEach() วนลูปข้อมูล data คืออาร์เรย์ของอารมณ์ที่ถูกตรวจจับ
+        const mappedEmotion = emotionMapping[item.emotion] || item.emotion;  //item.emotion คืออารมณ์ที่ได้จากข้อมูล
+        if (mappedEmotion in emotions) {   //ถ้า item.emotion มีอยู่ใน emotionMapping → ใช้ค่าที่แมปแล้ว
+          emotions[mappedEmotion] += 1;   //ถ้าค่า mappedEmotion อยู่ใน emotions → เพิ่มจำนวน (+1)
         }
       });
       
       // คำนวณเปอร์เซ็นต์
-      const totalDetections = data.length;
-      const emotionPercentages = {};
+      const totalDetections = data.length;  //นับจำนวนข้อมูลทั้งหมด (จำนวนอารมณ์ที่ถูกตรวจจับ)
+      const emotionPercentages = {};   // ตัวแปรเก็บค่าเปอร์เซ็นต์
       
-      for (const emotion in emotions) {
+      for (const emotion in emotions) {  //ใช้ for...in วนลูปคำนวณเปอร์เซ็นต์ของแต่ละอารมณ์
         const percent = totalDetections > 0
-          ? (emotions[emotion] / totalDetections) * 100
+          ? (emotions[emotion] / totalDetections) * 100   // คำนวณเป็นเปอร์เซ็นต์
           : 0;
-        emotionPercentages[emotion] = parseFloat(percent.toFixed(1));
+        emotionPercentages[emotion] = parseFloat(percent.toFixed(1));    //parseFloat() แปลงค่าเป็นตัวเลขจริง (ไม่ใช่สตริง) , ใช้ toFixed(1) ปัดเป็นทศนิยม 1 ตำแหน่ง
       }
       
-      setEmotionCounts(emotions);
-      setEmotionData(emotionPercentages);
-      setSelectedTime({ start: startOfPeriodISO, end: endOfPeriodISO });
-      setShowModal(true);
+      setEmotionCounts(emotions);  // อัปเดต state ของจำนวนอารมณ์ที่ตรวจจับได้
+      setEmotionData(emotionPercentages);  // อัปเดต state ของเปอร์เซ็นต์อารมณ์
+      setSelectedTime({ start: startOfPeriodISO, end: endOfPeriodISO });  // บันทึกช่วงเวลาที่เลือก
+      setShowModal(true); // แสดง Modal กราฟอารมณ์
     } catch (error) {
       console.error("Error fetching emotion data:", error.message);
     }
@@ -382,7 +382,7 @@ const getUniqueMonths = () => {
         <div className="sticky bottom-4 left-0 w-full px-4">
           <button
             onClick={handleSignOut}
-            className="w-full py-2 px-4 bg-pink-400 active:bg-[#1d2f3f] text-white rounded-lg"
+            className="w-full block py-2.5 px-4 bg-red-400 active:bg-[#1d2f3f] focus:outline-none text-white rounded-lg"
           >
             ออกจากระบบ
           </button>
@@ -443,24 +443,24 @@ const getUniqueMonths = () => {
           <h3 className="text-xl font-semibold mb-3">เลือกวัน/เวลาที่ต้องการดูผลวิเคราะห์</h3>
           
           
-          {viewMode === 'daily' && timestamps.length > 0 ? (
+  {viewMode === 'daily' && timestamps.length > 0 ? (
   <div>
     {/* Group timestamps by month */}
     {Object.entries(
       timestamps.reduce((acc, group) => {
         const monthKey = new Date(group.date).toLocaleString('default', { year: 'numeric', month: 'long' });
-        if (!acc[monthKey]) acc[monthKey] = [];
-        acc[monthKey].push(group);
+        if (!acc[monthKey]) acc[monthKey] = [];  // ถ้ายังไม่มี key สำหรับเดือนนี้ ให้สร้าง array ใหม่
+        acc[monthKey].push(group);  // เพิ่มข้อมูลเข้าไปใน array ของเดือนนั้น
         return acc;
       }, {})
-    ).map(([month, monthGroups]) => (
+    ).map(([month, monthGroups]) => ( // แปลงข้อมูลเป็น array ของ key-value เพื่อ map ไปแสดงผล
       <div key={month} className="mb-6">
         <h4 className="bg-pink-100 px-2 py-1 rounded text-xl font-semibold text-gray-700 mb-4">{month}</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {monthGroups.map((group, index) => (
+          {monthGroups.map((group, index) => (   // วนลูปข้อมูลของเดือนนั้น
             <div key={index} className="space-y-2">
               <p className="text-lg font-semibold text-gray-700">
-                {formatDate(new Date(group.date))}
+                {formatDate(new Date(group.date))}  {/* แปลง timestamp เป็นรูปแบบวันที่ */}
               </p>
               <button
                 onClick={() => fetchEmotionData(group.date, 'daily')}
@@ -477,22 +477,40 @@ const getUniqueMonths = () => {
       </div>
     ))}
   </div>
-          ) : viewMode === 'monthly' && monthlyTimestamps.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {monthlyTimestamps.map((group, index) => (
-                <div key={index} className="space-y-2">
-                  <p className="text-lg font-semibold text-gray-700">
-                    {formatMonth(group.month)}
-                  </p>
-                  <button
-                    onClick={() => fetchEmotionData(group.month, 'monthly')}
-                    className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
-                    </svg>
-                    <span>ช่วงเวลา: {convertToLocalTime(group.startTime)} ถึง {convertToLocalTime(group.endTime)}</span>
-                  </button>
+          ) :  viewMode === 'monthly' && monthlyTimestamps.length > 0 ? (
+            <div>
+              {/* Group timestamps by year */}
+              {Object.entries(
+                monthlyTimestamps.reduce((acc, group) => {
+                  const date = new Date(group.month + '-01'); // แปลงเดือนเป็นวันที่ 1 ของเดือนนั้น
+                  const yearKey = date.getFullYear().toString(); // ดึงค่าปีออกมาเป็น key
+                  if (!acc[yearKey]) acc[yearKey] = [];
+                  acc[yearKey].push(group);
+                  return acc;
+                }, {})
+              ).map(([year, yearGroups]) => (  // วนลูปปีที่จัดกลุ่มไว้
+                <div key={year} className="mb-6">
+                  <h4 className="bg-pink-100 px-2 py-1 rounded text-xl font-semibold text-gray-700 mb-4">
+                    {formatYear(year)}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {yearGroups.map((group, index) => (
+                      <div key={index} className="space-y-2">
+                        <p className="text-lg font-semibold text-gray-700">
+                          {formatMonth(group.month)}
+                        </p>
+                        <button
+                          onClick={() => fetchEmotionData(group.month, 'monthly')} // ดึงข้อมูลรายเดือน
+                          className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
+                          </svg>
+                          <span>ช่วงเวลา: {convertToLocalTime(group.startTime)} ถึง {convertToLocalTime(group.endTime)}</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -504,7 +522,7 @@ const getUniqueMonths = () => {
                     {formatYear(group.year)}
                   </p>
                   <button
-                    onClick={() => fetchEmotionData(group.year, 'yearly')}
+                    onClick={() => fetchEmotionData(group.year, 'yearly')} // ดึงข้อมูลรายปี
                     className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
