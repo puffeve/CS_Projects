@@ -8,7 +8,7 @@ const AdminPage = ({ currentUser }) => {
     courses_id: '',
     namecourses: '',
     year: '',
-    teacher: '',
+    name_teacher: '', // Changed from teacher to name_teacher to match what's used in handleSubmit
     term: '',
   });
 
@@ -28,7 +28,7 @@ const AdminPage = ({ currentUser }) => {
         router.push('/login');
       }
     }
-  }, [currentUser]);
+  }, [currentUser, router]);
 
   const currentYear = new Date().getFullYear();
   const years = [];
@@ -101,17 +101,17 @@ const AdminPage = ({ currentUser }) => {
         <div>
           <h1 className="text-2xl font-bold">ClassMood Insight</h1>
           {userName && <p className="text-lg font-semibold mt-4">สวัสดี {userName}</p>}
-          <hr className="border-sky-300 my-6" />
+          <hr className="border-black my-6" />
           <nav>
-            <a href="/searchacc" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลบัญชี</a>
-            <a href="/searchcourse" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลรายวิชา</a>
+            <a href="/searchacc" className="block py-2.5 px-4 mt-3 bg-pink-400 hover:bg-pink-300 text-white rounded-lg">จัดการข้อมูลบัญชี</a>
+            <a href="/searchcourse" className="block py-2.5 px-4 mt-3 bg-pink-400 hover:bg-pink-300 text-white rounded-lg">จัดการข้อมูลรายวิชา</a>
          
           </nav>
         </div>
         <div className="flex-grow"></div>
         <button
           onClick={handleLogout}
-          className="bg-pink-400 text-white px-4 py-2 rounded-lg"
+          className="bg-red-400 active:bg-[#1d2f3f] text-white px-4 py-2 rounded-lg"
         >
           ออกจากระบบ
         </button>
@@ -121,7 +121,7 @@ const AdminPage = ({ currentUser }) => {
         <div className="bg-sky-50 p-8 rounded-lg shadow-md w-full max-w-2xl">
           <h2 className="text-2xl font-semibold mb-6">เพิ่มรายวิชา</h2>
           {error && <div className="mb-4 text-red-500">{error}</div>}
-          {success && <div className="mb-4 text-green-500">{success}</div>}
+          {success && <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg">{success}</div>}
           <form onSubmit={handleSubmit}>
           <div className="mb-4">
               <label className="block text-gray-700">รหัสรายวิชา</label>
@@ -131,6 +131,7 @@ const AdminPage = ({ currentUser }) => {
                 value={formData.courses_id}
                 onChange={handleInputChange}
                 className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
+                placeholder="กรุณากรอกข้อมูลเป็นตัวเลขเท่านั้น"
                 required
               />
             </div>
@@ -161,6 +162,21 @@ const AdminPage = ({ currentUser }) => {
               </select>
             </div>
             <div className="mb-4">
+              <label className="block text-gray-700">ภาคการศึกษา</label>
+              <select
+                name="term"
+                value={formData.term}
+                onChange={handleInputChange}
+                className="mt-1 p-3 w-full border rounded-lg focus:outline-none focus:ring focus:border-blue-300"
+                required
+              >
+                <option value="">เลือกภาคการศึกษา</option>
+                <option value="ภาคเรียนที่ 1">ภาคเรียนที่ 1</option>
+                <option value="ภาคเรียนที่ 2">ภาคเรียนที่ 2</option>
+                <option value="ภาคเรียนฤดูร้อน">ภาคเรียนฤดูร้อน</option>
+              </select>
+            </div>
+            <div className="mb-4">
               <label className="block text-gray-700">ชื่ออาจารย์ผู้สอน</label>
               <select
                 name="name_teacher"
@@ -171,7 +187,7 @@ const AdminPage = ({ currentUser }) => {
               >
                 <option value="">เลือกครูผู้สอน</option>
                 {teachers.map((teacher) => (
-                  <option key={teacher.id} value={teacher.name}>{teacher.name}</option>
+                  <option key={teacher.name} value={teacher.name}>{teacher.name}</option>
                 ))}
               </select>
             </div>
