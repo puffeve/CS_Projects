@@ -454,7 +454,7 @@ export default function CompareCourses() {
               localStorage.removeItem('user');
               router.push('/login');
             }}
-            className="w-full block py-2.5 px-4 bg-pink-400 active:bg-[#1d2f3f] focus:outline-none text-white rounded-lg"
+            className="w-full block py-2.5 px-4 bg-red-400 active:bg-[#1d2f3f] focus:outline-none text-white rounded-lg"
           >
             ออกจากระบบ
           </button>
