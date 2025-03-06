@@ -11,14 +11,31 @@ export default function CompareCourses() {
   const [course2, setCourse2] = useState('');
   const [course1Data, setCourse1Data] = useState(null);
   const [course2Data, setCourse2Data] = useState(null);
-  const [course1Times, setCourse1Times] = useState([]);
-  const [course2Times, setCourse2Times] = useState([]);
-  const [selectedTime1, setSelectedTime1] = useState('');
-  const [selectedTime2, setSelectedTime2] = useState('');
   const [comparisonData, setComparisonData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const router = useRouter();
+  
+  // Comparison Type State
+  const [comparisonType, setComparisonType] = useState("daily"); // "daily", "monthly", or "yearly"
+  
+  // Daily Comparison States
+  const [course1Times, setCourse1Times] = useState([]);
+  const [course2Times, setCourse2Times] = useState([]);
+  const [selectedTime1, setSelectedTime1] = useState('');
+  const [selectedTime2, setSelectedTime2] = useState('');
+  
+  // Monthly Comparison States
+  const [course1Months, setCourse1Months] = useState([]);
+  const [course2Months, setCourse2Months] = useState([]);
+  const [selectedMonth1, setSelectedMonth1] = useState('');
+  const [selectedMonth2, setSelectedMonth2] = useState('');
+  
+  // Yearly Comparison States
+  const [course1Years, setCourse1Years] = useState([]);
+  const [course2Years, setCourse2Years] = useState([]);
+  const [selectedYear1, setSelectedYear1] = useState('');
+  const [selectedYear2, setSelectedYear2] = useState('');
 
   useEffect(() => {
     // Load user data on component mount
@@ -68,6 +85,49 @@ export default function CompareCourses() {
     }
   };
 
+  // Function to toggle comparison type
+  const toggleComparisonType = (type) => {
+    setComparisonType(type);
+    resetSelections();
+    
+    if (course1) {
+      if (type === "daily") {
+        fetchCourseTimes(course1, setCourse1Times);
+      } else if (type === "monthly") {
+        fetchCourseMonths(course1, setCourse1Months);
+      } else if (type === "yearly") {
+        fetchCourseYears(course1, setCourse1Years);
+      }
+    }
+    
+    if (course2) {
+      if (type === "daily") {
+        fetchCourseTimes(course2, setCourse2Times);
+      } else if (type === "monthly") {
+        fetchCourseMonths(course2, setCourse2Months);
+      } else if (type === "yearly") {
+        fetchCourseYears(course2, setCourse2Years);
+      }
+    }
+  };
+
+  const resetSelections = () => {
+    // Reset all time-related selections
+    setSelectedTime1('');
+    setSelectedTime2('');
+    setSelectedMonth1('');
+    setSelectedMonth2('');
+    setSelectedYear1('');
+    setSelectedYear2('');
+    
+    // Reset data
+    setCourse1Data(null);
+    setCourse2Data(null);
+    setComparisonData(null);
+    setError(null);
+  };
+
+  // DAILY COMPARISON FUNCTIONS
   const fetchCourseTimes = async (courseId, setCourseTimesFunction) => {
     setIsLoading(true);
     setError(null);
@@ -153,35 +213,13 @@ export default function CompareCourses() {
         return;
       }
       
-      // สำหรับการทดสอบ ให้แสดงข้อมูลจากฐานข้อมูลทั้งหมดก่อน
-      console.log(`Attempting to fetch ALL records for course ${courseIdInt} to troubleshoot...`);
-      
-      const { data: allData, error: allDataError } = await supabase
-        .from('emotion_detection')
-        .select('*')
-        .eq('courses_id', courseIdInt)
-        .limit(10);
-        
-      if (allDataError) {
-        console.error(`Error fetching sample data for course ${courseIdInt}:`, allDataError);
-      } else {
-        console.log(`Sample data from database (first 10 records):`, allData);
-      }
-      
       // แปลงเป็นวัตถุ Date
       const selectedDate = new Date(dateTime);
       console.log("Selected date (input):", dateTime);
-      console.log("Parsed date:", selectedDate);
-      console.log("ISO String:", selectedDate.toISOString());
-      console.log("Date components:", {
-        year: selectedDate.getFullYear(),
-        month: selectedDate.getMonth() + 1,
-        day: selectedDate.getDate()
-      });
       
-      // สร้างรูปแบบสำหรับการค้นหา - ลองใช้วิธีเรียกดูข้อมูลทั้งหมดและกรองด้วย JavaScript แทน
-      // แทนที่จะใช้ ILIKE ที่อาจมีปัญหา
-      console.log(`Attempting more direct approach - fetching all records for course ${courseIdInt}`);
+      // สร้างรูปแบบสำหรับการค้นหา
+      const targetDateStr = `${selectedDate.getFullYear()}-${(selectedDate.getMonth() + 1).toString().padStart(2, '0')}-${selectedDate.getDate().toString().padStart(2, '0')}`;
+      console.log(`Filtering for date: ${targetDateStr}`);
       
       const { data, error } = await supabase
         .from('emotion_detection')
@@ -203,35 +241,17 @@ export default function CompareCourses() {
         return;
       }
       
-      console.log(`Got ${data.length} records for course ${courseIdInt}, now filtering by date manually`);
-      
       // กรองข้อมูลตามวันที่เอง
-      const targetDateStr = `${selectedDate.getFullYear()}-${(selectedDate.getMonth() + 1).toString().padStart(2, '0')}-${selectedDate.getDate().toString().padStart(2, '0')}`;
-      console.log(`Filtering for date: ${targetDateStr}`);
-      
-      // ตรวจสอบวันที่ที่มีในข้อมูล
-      const availableDates = [...new Set(data.map(item => {
-        const date = new Date(item.detection_time);
-        return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
-      }))];
-      
-      console.log("Available dates in data:", availableDates);
-      
-      // กรองข้อมูลตามวันที่
       const filteredData = data.filter(item => {
         const itemDate = new Date(item.detection_time);
         const itemDateStr = `${itemDate.getFullYear()}-${(itemDate.getMonth() + 1).toString().padStart(2, '0')}-${itemDate.getDate().toString().padStart(2, '0')}`;
-        const matched = itemDateStr === targetDateStr;
-        if (matched) {
-          console.log(`Match found: ${item.detection_time} -> ${itemDateStr} === ${targetDateStr}`);
-        }
-        return matched;
+        return itemDateStr === targetDateStr;
       });
       
       console.log(`After manual filtering, found ${filteredData.length} records`);
       
       if (filteredData.length === 0) {
-        setError(`ไม่พบข้อมูลอารมณ์สำหรับวันที่ ${selectedDate.getDate()}/${selectedDate.getMonth() + 1}/${selectedDate.getFullYear()} ในรายวิชา ${courseId} (วันที่ที่มีข้อมูล: ${availableDates.map(d => new Date(d).toLocaleDateString('th-TH')).join(', ')})`);
+        setError(`ไม่พบข้อมูลอารมณ์สำหรับวันที่ ${selectedDate.getDate()}/${selectedDate.getMonth() + 1}/${selectedDate.getFullYear()} ในรายวิชา ${courseId}`);
         setIsLoading(false);
         return;
       }
@@ -249,10 +269,7 @@ export default function CompareCourses() {
 
       filteredData.forEach(record => {
         const emotion = record.emotion ? record.emotion.toLowerCase() : '';
-        // แสดงค่าอารมณ์ที่พบเพื่อการแก้ไขปัญหา
-        console.log(`Found emotion: "${emotion}" in record:`, record);
         
-        // แปลงชื่ออารมณ์จากฐานข้อมูลให้ตรงกับที่เราใช้
         if (emotion === 'happiness') emotionCounts.happy++;
         else if (emotion === 'sadness') emotionCounts.sad++;
         else if (emotion === 'anger') emotionCounts.angry++;
@@ -260,7 +277,6 @@ export default function CompareCourses() {
         else if (emotion === 'surprise') emotionCounts.surprise++;
         else if (emotion === 'disgust') emotionCounts.disgust++;
         else if (emotion === 'neutral') emotionCounts.neutral++;
-        // เพิ่มกรณีที่พบในข้อมูลจริง
         else if (emotion === 'happy') emotionCounts.happy++;
         else if (emotion === 'sad') emotionCounts.sad++;
       });
@@ -274,6 +290,7 @@ export default function CompareCourses() {
         courseName: courseDetails ? courseDetails.namecourses : `วิชา ${courseId}`,
         courseId: courseId,
         selectedDate: selectedDate.toISOString(),
+        selectedType: 'day',
         totalDetections: filteredData.length
       });
       
@@ -285,6 +302,332 @@ export default function CompareCourses() {
     }
   };
 
+  // MONTHLY COMPARISON FUNCTIONS
+  const fetchCourseMonths = async (courseId, setCourseMonthsFunction) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const courseIdInt = parseInt(courseId, 10);
+      
+      if (isNaN(courseIdInt)) {
+        setError(`รหัสวิชาไม่ถูกต้อง: ${courseId}`);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log(`Fetching months for course ID: ${courseIdInt}`);
+      
+      const { data, error } = await supabase
+        .from('emotion_detection')
+        .select('detection_time')
+        .eq('courses_id', courseIdInt);
+
+      if (error) {
+        console.error(`Error fetching months for course ${courseIdInt}:`, error);
+        setError(`ไม่สามารถดึงข้อมูลเดือนสำหรับรายวิชา ${courseId} ได้`);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        console.log(`No month data found for course ${courseIdInt}`);
+        setCourseMonthsFunction([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Extract year-month format (YYYY-MM) from timestamps
+      const monthsMap = {};
+      
+      data.forEach(item => {
+        const date = new Date(item.detection_time);
+        const yearMonth = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        monthsMap[yearMonth] = true;
+      });
+      
+      // Convert to array and sort
+      const uniqueMonths = Object.keys(monthsMap).sort().reverse();
+      
+      console.log(`Found ${uniqueMonths.length} unique months for course ${courseIdInt}`);
+      setCourseMonthsFunction(uniqueMonths);
+      setIsLoading(false);
+    } catch (error) {
+      console.error(`Exception when fetching months for course ${courseId}:`, error);
+      setError(`เกิดข้อผิดพลาดขณะดึงข้อมูลเดือน: ${error.message || 'Unknown error'}`);
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCourseEmotionDataByMonth = async (courseId, yearMonth, setCourseDataFunction) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      if (!courseId || !yearMonth) {
+        setError('กรุณาเลือกรายวิชาและเดือนให้ครบถ้วน');
+        setIsLoading(false);
+        return;
+      }
+      
+      const courseIdInt = parseInt(courseId, 10);
+      
+      if (isNaN(courseIdInt)) {
+        setError(`รหัสวิชาไม่ถูกต้อง: ${courseId}`);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Split year and month
+      const [year, month] = yearMonth.split('-');
+      const nextMonth = month === '12' 
+        ? `${parseInt(year) + 1}-01` 
+        : `${year}-${(parseInt(month) + 1).toString().padStart(2, '0')}`;
+      
+      console.log(`Fetching data for ${yearMonth} to ${nextMonth}`);
+      
+      const { data, error } = await supabase
+        .from('emotion_detection')
+        .select('*')
+        .eq('courses_id', courseIdInt)
+        .gte('detection_time', `${yearMonth}-01T00:00:00`)
+        .lt('detection_time', `${nextMonth}-01T00:00:00`);
+        
+      if (error) {
+        console.error(`Error fetching emotion data by month for course ${courseIdInt}:`, error);
+        setError(`ไม่สามารถดึงข้อมูลอารมณ์สำหรับรายวิชา ${courseId} ได้: ${error.message}`);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        setError(`ไม่พบข้อมูลอารมณ์สำหรับเดือน ${formatThaiMonth(yearMonth)} ในรายวิชา ${courseId}`);
+        setIsLoading(false);
+        return;
+      }
+
+      // Group emotions
+      const emotionCounts = {
+        happy: 0,
+        sad: 0,
+        angry: 0,
+        fear: 0,
+        surprise: 0,
+        disgust: 0,
+        neutral: 0
+      };
+
+      data.forEach(record => {
+        const emotion = record.emotion ? record.emotion.toLowerCase() : '';
+        
+        if (emotion === 'happiness') emotionCounts.happy++;
+        else if (emotion === 'sadness') emotionCounts.sad++;
+        else if (emotion === 'anger') emotionCounts.angry++;
+        else if (emotion === 'fear') emotionCounts.fear++;
+        else if (emotion === 'surprise') emotionCounts.surprise++;
+        else if (emotion === 'disgust') emotionCounts.disgust++;
+        else if (emotion === 'neutral') emotionCounts.neutral++;
+        else if (emotion === 'happy') emotionCounts.happy++;
+        else if (emotion === 'sad') emotionCounts.sad++;
+      });
+
+      // Get course details
+      const courseDetails = courses.find(course => parseInt(course.courses_id, 10) === courseIdInt);
+      
+      setCourseDataFunction({
+        ...emotionCounts,
+        courseName: courseDetails ? courseDetails.namecourses : `วิชา ${courseId}`,
+        courseId: courseId,
+        selectedDate: yearMonth,
+        selectedType: 'month',
+        totalDetections: data.length
+      });
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error(`Exception when fetching emotion data by month for course ${courseId}:`, error);
+      setError(`เกิดข้อผิดพลาดขณะดึงข้อมูลอารมณ์: ${error.message || 'Unknown error'}`);
+      setIsLoading(false);
+    }
+  };
+
+  // YEARLY COMPARISON FUNCTIONS
+  const fetchCourseYears = async (courseId, setCourseYearsFunction) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const courseIdInt = parseInt(courseId, 10);
+      
+      if (isNaN(courseIdInt)) {
+        setError(`รหัสวิชาไม่ถูกต้อง: ${courseId}`);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log(`Fetching years for course ID: ${courseIdInt}`);
+      
+      const { data, error } = await supabase
+        .from('emotion_detection')
+        .select('detection_time')
+        .eq('courses_id', courseIdInt);
+
+      if (error) {
+        console.error(`Error fetching years for course ${courseIdInt}:`, error);
+        setError(`ไม่สามารถดึงข้อมูลปีสำหรับรายวิชา ${courseId} ได้`);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        console.log(`No year data found for course ${courseIdInt}`);
+        setCourseYearsFunction([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Extract year format (YYYY) from timestamps
+      const yearsMap = {};
+      
+      data.forEach(item => {
+        const date = new Date(item.detection_time);
+        const year = `${date.getFullYear()}`;
+        yearsMap[year] = true;
+      });
+      
+      // Convert to array and sort
+      const uniqueYears = Object.keys(yearsMap).sort().reverse();
+      
+      console.log(`Found ${uniqueYears.length} unique years for course ${courseIdInt}`);
+      setCourseYearsFunction(uniqueYears);
+      setIsLoading(false);
+    } catch (error) {
+      console.error(`Exception when fetching years for course ${courseId}:`, error);
+      setError(`เกิดข้อผิดพลาดขณะดึงข้อมูลปี: ${error.message || 'Unknown error'}`);
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCourseEmotionDataByYear = async (courseId, year, setCourseDataFunction) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      if (!courseId || !year) {
+        setError('กรุณาเลือกรายวิชาและปีให้ครบถ้วน');
+        setIsLoading(false);
+        return;
+      }
+      
+      const courseIdInt = parseInt(courseId, 10);
+      
+      if (isNaN(courseIdInt)) {
+        setError(`รหัสวิชาไม่ถูกต้อง: ${courseId}`);
+        setIsLoading(false);
+        return;
+      }
+      
+      const nextYear = `${parseInt(year) + 1}`;
+      
+      console.log(`Fetching data for year ${year} to ${nextYear}`);
+      
+      const { data, error } = await supabase
+        .from('emotion_detection')
+        .select('*')
+        .eq('courses_id', courseIdInt)
+        .gte('detection_time', `${year}-01-01T00:00:00`)
+        .lt('detection_time', `${nextYear}-01-01T00:00:00`);
+        
+      if (error) {
+        console.error(`Error fetching emotion data by year for course ${courseIdInt}:`, error);
+        setError(`ไม่สามารถดึงข้อมูลอารมณ์สำหรับรายวิชา ${courseId} ได้: ${error.message}`);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        setError(`ไม่พบข้อมูลอารมณ์สำหรับปี ${formatThaiYear(year)} ในรายวิชา ${courseId}`);
+        setIsLoading(false);
+        return;
+      }
+
+      // Group emotions
+      const emotionCounts = {
+        happy: 0,
+        sad: 0,
+        angry: 0,
+        fear: 0,
+        surprise: 0,
+        disgust: 0,
+        neutral: 0
+      };
+
+      data.forEach(record => {
+        const emotion = record.emotion ? record.emotion.toLowerCase() : '';
+        
+        if (emotion === 'happiness') emotionCounts.happy++;
+        else if (emotion === 'sadness') emotionCounts.sad++;
+        else if (emotion === 'anger') emotionCounts.angry++;
+        else if (emotion === 'fear') emotionCounts.fear++;
+        else if (emotion === 'surprise') emotionCounts.surprise++;
+        else if (emotion === 'disgust') emotionCounts.disgust++;
+        else if (emotion === 'neutral') emotionCounts.neutral++;
+        else if (emotion === 'happy') emotionCounts.happy++;
+        else if (emotion === 'sad') emotionCounts.sad++;
+      });
+
+      // Get course details
+      const courseDetails = courses.find(course => parseInt(course.courses_id, 10) === courseIdInt);
+      
+      setCourseDataFunction({
+        ...emotionCounts,
+        courseName: courseDetails ? courseDetails.namecourses : `วิชา ${courseId}`,
+        courseId: courseId,
+        selectedDate: year,
+        selectedType: 'year',
+        totalDetections: data.length
+      });
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error(`Exception when fetching emotion data by year for course ${courseId}:`, error);
+      setError(`เกิดข้อผิดพลาดขณะดึงข้อมูลอารมณ์: ${error.message || 'Unknown error'}`);
+      setIsLoading(false);
+    }
+  };
+
+  // Helper functions to format dates in Thai
+  const formatDateTime = (isoString) => {
+    try {
+      const date = new Date(isoString);
+      // แสดงเฉพาะวันที่ในรูปแบบไทย ไม่แสดงเวลา
+      return date.toLocaleDateString('th-TH');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return isoString || '';
+    }
+  };
+
+  const formatThaiMonth = (yearMonth) => {
+    if (!yearMonth) return "";
+    
+    const [year, month] = yearMonth.split('-');
+    const thaiYear = parseInt(year) + 543;
+    
+    const thaiMonths = [
+      "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", 
+      "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+    ];
+    
+    return `${thaiMonths[parseInt(month) - 1]} ${thaiYear}`;
+  };
+
+  const formatThaiYear = (year) => {
+    if (!year) return "";
+    return `พ.ศ. ${parseInt(year) + 543}`;
+  };
+
+  // Event handlers for all selection types
   const handleCourse1Change = (e) => {
     const courseId = e.target.value;
     
@@ -295,15 +638,20 @@ export default function CompareCourses() {
     }
   
     setCourse1(courseId);
-    setSelectedTime1('');
-    setCourse1Data(null);
-    setComparisonData(null);
-    setError(null);
+    resetSelections();
     
     if (courseId) {
-      fetchCourseTimes(courseId, setCourse1Times);
+      if (comparisonType === "daily") {
+        fetchCourseTimes(courseId, setCourse1Times);
+      } else if (comparisonType === "monthly") {
+        fetchCourseMonths(courseId, setCourse1Months);
+      } else if (comparisonType === "yearly") {
+        fetchCourseYears(courseId, setCourse1Years);
+      }
     } else {
       setCourse1Times([]);
+      setCourse1Months([]);
+      setCourse1Years([]);
     }
   };
   
@@ -317,15 +665,20 @@ export default function CompareCourses() {
     }
   
     setCourse2(courseId);
-    setSelectedTime2('');
-    setCourse2Data(null);
-    setComparisonData(null);
-    setError(null);
+    resetSelections();
     
     if (courseId) {
-      fetchCourseTimes(courseId, setCourse2Times);
+      if (comparisonType === "daily") {
+        fetchCourseTimes(courseId, setCourse2Times);
+      } else if (comparisonType === "monthly") {
+        fetchCourseMonths(courseId, setCourse2Months);
+      } else if (comparisonType === "yearly") {
+        fetchCourseYears(courseId, setCourse2Years);
+      }
     } else {
       setCourse2Times([]);
+      setCourse2Months([]);
+      setCourse2Years([]);
     }
   };
 
@@ -350,6 +703,58 @@ export default function CompareCourses() {
     
     if (time) {
       fetchCourseEmotionData(course2, time, setCourse2Data);
+    } else {
+      setCourse2Data(null);
+    }
+  };
+
+  const handleMonth1Change = (e) => {
+    const month = e.target.value;
+    setSelectedMonth1(month);
+    setComparisonData(null);
+    setError(null);
+    
+    if (month) {
+      fetchCourseEmotionDataByMonth(course1, month, setCourse1Data);
+    } else {
+      setCourse1Data(null);
+    }
+  };
+
+  const handleMonth2Change = (e) => {
+    const month = e.target.value;
+    setSelectedMonth2(month);
+    setComparisonData(null);
+    setError(null);
+    
+    if (month) {
+      fetchCourseEmotionDataByMonth(course2, month, setCourse2Data);
+    } else {
+      setCourse2Data(null);
+    }
+  };
+
+  const handleYear1Change = (e) => {
+    const year = e.target.value;
+    setSelectedYear1(year);
+    setComparisonData(null);
+    setError(null);
+    
+    if (year) {
+      fetchCourseEmotionDataByYear(course1, year, setCourse1Data);
+    } else {
+      setCourse1Data(null);
+    }
+  };
+
+  const handleYear2Change = (e) => {
+    const year = e.target.value;
+    setSelectedYear2(year);
+    setComparisonData(null);
+    setError(null);
+    
+    if (year) {
+      fetchCourseEmotionDataByYear(course2, year, setCourse2Data);
     } else {
       setCourse2Data(null);
     }
@@ -400,17 +805,6 @@ export default function CompareCourses() {
     }
   };
 
-  const formatDateTime = (isoString) => {
-    try {
-      const date = new Date(isoString);
-      // แสดงเฉพาะวันที่ในรูปแบบไทย ไม่แสดงเวลา
-      return date.toLocaleDateString('th-TH');
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return isoString || '';
-    }
-  };
-
   const handleBackClick = () => {
     router.push('/Teacher_dashboard');
   };
@@ -435,17 +829,18 @@ export default function CompareCourses() {
             เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
           </button>
           <button 
-        onClick={() => router.push('/compare_courses')}
-        className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md "
-      >
-        เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
-      </button>
-        <button
-          onClick={handleBackClick}
-          className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4"
-        >
-          ย้อนกลับ
-        </button>
+            onClick={() => router.push('/compare_courses')}
+            className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md "
+          >
+            เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
+          </button>
+          <button
+            onClick={handleBackClick}
+            className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4"
+          >
+            ย้อนกลับ
+          </button>
+        </div>
 
         <div className="absolute bottom-4 left-0 w-full px-4">
           <button
@@ -460,11 +855,44 @@ export default function CompareCourses() {
           </button>
         </div>
       </div>
-      </div>
 
       {/* Main Content */}
       <div className="flex-1 p-8 overflow-y-auto">
         <h2 className="text-2xl font-bold mb-4">เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา</h2>
+        
+        {/* Comparison Type Selection */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <button
+            onClick={() => toggleComparisonType("daily")}
+            className={`py-2 px-4 rounded-lg text-center ${
+              comparisonType === "daily" 
+                ? "bg-sky-600 text-white" 
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            เปรียบเทียบรายวัน
+          </button>
+          <button
+            onClick={() => toggleComparisonType("monthly")}
+            className={`py-2 px-4 rounded-lg text-center ${
+              comparisonType === "monthly" 
+                ? "bg-sky-600 text-white" 
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            เปรียบเทียบรายเดือน
+          </button>
+          <button
+            onClick={() => toggleComparisonType("yearly")}
+            className={`py-2 px-4 rounded-lg text-center ${
+              comparisonType === "yearly" 
+                ? "bg-sky-600 text-white" 
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            เปรียบเทียบรายปี
+          </button>
+        </div>
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -474,130 +902,256 @@ export default function CompareCourses() {
         )}
         
         <div className="grid grid-cols-2 gap-6 mb-8">
-  {/* Course 1 Selection */}
-  <div className="bg-white p-6 rounded-lg shadow">
-    <h3 className="text-xl font-semibold mb-4">วิชาที่ 1</h3>
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        เลือกวิชา
-      </label>
-      <select
-        className="w-full p-2 border border-gray-300 rounded-lg"
-        value={course1}
-        onChange={handleCourse1Change}
-        disabled={isLoading}
-      >
-        <option value="">-- เลือกวิชา --</option>
-        {courses
-          .filter((course) => course.courses_id.toString() !== course2)
-          .map((course) => (
-            <option key={`c1-${course.courses_id}`} value={course.courses_id}>
-              {course.courses_id} - {course.namecourses}
-            </option>
-          ))
-        }
-      </select>
-    </div>
-    
-    {course1 && course1Times.length === 0 && !isLoading && (
-      <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
-        ไม่พบข้อมูลเวลาสำหรับรายวิชานี้
-      </div>
-    )}
-    
-    {course1Times.length > 0 && (
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          เลือกวัน
-        </label>
-        <select
-          className="w-full p-2 border border-gray-300 rounded-lg"
-          value={selectedTime1}
-          onChange={handleTime1Change}
-          disabled={isLoading}
-        >
-          <option value="">-- เลือกวัน --</option>
-          {course1Times.map((time, index) => (
-            <option key={`t1-${index}`} value={time}>
-              {formatDateTime(time)}
-            </option>
-          ))}
-        </select>
-      </div>
-    )}
-    
-    {course1Data && (
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-        <h4 className="font-medium text-lg mb-2">ข้อมูลที่เลือก</h4>
-        <p>วิชา: {course1Data.courseName} ({course1Data.courseId})</p>
-        <p>วันที่: {course1Data.selectedDate ? formatDateTime(course1Data.selectedDate) : formatDateTime(selectedTime1)}</p>
-        <p>จำนวนการตรวจจับทั้งหมด: {course1Data.totalDetections}</p>
-      </div>
-    )}
-  </div>
-  
-  {/* Course 2 Selection */}
-  <div className="bg-white p-6 rounded-lg shadow">
-    <h3 className="text-xl font-semibold mb-4">วิชาที่ 2</h3>
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        เลือกวิชา
-      </label>
-      <select
-        className="w-full p-2 border border-gray-300 rounded-lg"
-        value={course2}
-        onChange={handleCourse2Change}
-        disabled={isLoading}
-      >
-        <option value="">-- เลือกวิชา --</option>
-        {courses
-          .filter((course) => course.courses_id.toString() !== course1)
-          .map((course) => (
-            <option key={`c2-${course.courses_id}`} value={course.courses_id}>
-              {course.courses_id} - {course.namecourses}
-            </option>
-          ))
-        }
-      </select>
-    </div>
-    
-    {course2 && course2Times.length === 0 && !isLoading && (
-      <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
-        ไม่พบข้อมูลเวลาสำหรับรายวิชานี้
-      </div>
-    )}
-    
-    {course2Times.length > 0 && (
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          เลือกวัน
-        </label>
-        <select
-          className="w-full p-2 border border-gray-300 rounded-lg"
-          value={selectedTime2}
-          onChange={handleTime2Change}
-          disabled={isLoading}
-        >
-          <option value="">-- เลือกวัน --</option>
-          {course2Times.map((time, index) => (
-            <option key={`t2-${index}`} value={time}>
-              {formatDateTime(time)}
-            </option>
-          ))}
-        </select>
-      </div>
-    )}
-    
-    {course2Data && (
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-        <h4 className="font-medium text-lg mb-2">ข้อมูลที่เลือก</h4>
-        <p>วิชา: {course2Data.courseName} ({course2Data.courseId})</p>
-        <p>วันที่: {course2Data.selectedDate ? formatDateTime(course2Data.selectedDate) : formatDateTime(selectedTime2)}</p>
-        <p>จำนวนการตรวจจับทั้งหมด: {course2Data.totalDetections}</p>
-      </div>
-    )}
-  </div>
-</div>
+          {/* Course 1 Selection */}
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-xl font-semibold mb-4">วิชาที่ 1</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                เลือกวิชา
+              </label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-lg"
+                value={course1}
+                onChange={handleCourse1Change}
+                disabled={isLoading}
+              >
+                <option value="">-- เลือกวิชา --</option>
+                {courses
+                  .filter((course) => course.courses_id.toString() !== course2)
+                  .map((course) => (
+                    <option key={`c1-${course.courses_id}`} value={course.courses_id}>
+                      {course.courses_id} - {course.namecourses}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+            
+            {/* Daily selection */}
+            {comparisonType === "daily" && course1 && course1Times.length === 0 && !isLoading && (
+              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
+                ไม่พบข้อมูลวันที่สำหรับรายวิชานี้
+              </div>
+            )}
+            
+            {comparisonType === "daily" && course1Times.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  เลือกวัน
+                </label>
+                <select
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                  value={selectedTime1}
+                  onChange={handleTime1Change}
+                  disabled={isLoading}
+                >
+                  <option value="">-- เลือกวัน --</option>
+                  {course1Times.map((time, index) => (
+                    <option key={`t1-${index}`} value={time}>
+                      {formatDateTime(time)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {/* Monthly selection */}
+            {comparisonType === "monthly" && course1 && course1Months.length === 0 && !isLoading && (
+              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
+                ไม่พบข้อมูลเดือนสำหรับรายวิชานี้
+              </div>
+            )}
+            
+            {comparisonType === "monthly" && course1Months.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  เลือกเดือน
+                </label>
+                <select
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                  value={selectedMonth1}
+                  onChange={handleMonth1Change}
+                  disabled={isLoading}
+                >
+                  <option value="">-- เลือกเดือน --</option>
+                  {course1Months.map((month, index) => (
+                    <option key={`m1-${index}`} value={month}>
+                      {formatThaiMonth(month)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {/* Yearly selection */}
+            {comparisonType === "yearly" && course1 && course1Years.length === 0 && !isLoading && (
+              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
+                ไม่พบข้อมูลปีสำหรับรายวิชานี้
+              </div>
+            )}
+            
+            {comparisonType === "yearly" && course1Years.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  เลือกปี
+                </label>
+                <select
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                  value={selectedYear1}
+                  onChange={handleYear1Change}
+                  disabled={isLoading}
+                >
+                  <option value="">-- เลือกปี --</option>
+                  {course1Years.map((year, index) => (
+                    <option key={`y1-${index}`} value={year}>
+                      {formatThaiYear(year)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {course1Data && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-lg mb-2">ข้อมูลที่เลือก</h4>
+                <p>วิชา: {course1Data.courseName} ({course1Data.courseId})</p>
+                <p>
+                  {course1Data.selectedType === 'month' ? 'เดือน: ' :
+                  course1Data.selectedType === 'year' ? 'ปี: ' : 'วันที่: '}
+                  {course1Data.selectedType === 'month' ? formatThaiMonth(course1Data.selectedDate) :
+                  course1Data.selectedType === 'year' ? formatThaiYear(course1Data.selectedDate) :
+                  formatDateTime(course1Data.selectedDate)}
+                </p>
+                <p>จำนวนการตรวจจับทั้งหมด: {course1Data.totalDetections}</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Course 2 Selection */}
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-xl font-semibold mb-4">วิชาที่ 2</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                เลือกวิชา
+              </label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-lg"
+                value={course2}
+                onChange={handleCourse2Change}
+                disabled={isLoading}
+              >
+                <option value="">-- เลือกวิชา --</option>
+                {courses
+                  .filter((course) => course.courses_id.toString() !== course1)
+                  .map((course) => (
+                    <option key={`c2-${course.courses_id}`} value={course.courses_id}>
+                      {course.courses_id} - {course.namecourses}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+            
+            {/* Daily selection */}
+            {comparisonType === "daily" && course2 && course2Times.length === 0 && !isLoading && (
+              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
+                ไม่พบข้อมูลวันที่สำหรับรายวิชานี้
+              </div>
+            )}
+            
+            {comparisonType === "daily" && course2Times.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  เลือกวัน
+                </label>
+                <select
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                  value={selectedTime2}
+                  onChange={handleTime2Change}
+                  disabled={isLoading}
+                >
+                  <option value="">-- เลือกวัน --</option>
+                  {course2Times.map((time, index) => (
+                    <option key={`t2-${index}`} value={time}>
+                      {formatDateTime(time)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {/* Monthly selection */}
+            {comparisonType === "monthly" && course2 && course2Months.length === 0 && !isLoading && (
+              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
+                ไม่พบข้อมูลเดือนสำหรับรายวิชานี้
+              </div>
+            )}
+            
+            {comparisonType === "monthly" && course2Months.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  เลือกเดือน
+                </label>
+                <select
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                  value={selectedMonth2}
+                  onChange={handleMonth2Change}
+                  disabled={isLoading}
+                >
+                  <option value="">-- เลือกเดือน --</option>
+                  {course2Months.map((month, index) => (
+                    <option key={`m2-${index}`} value={month}>
+                      {formatThaiMonth(month)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {/* Yearly selection */}
+            {comparisonType === "yearly" && course2 && course2Years.length === 0 && !isLoading && (
+              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
+                ไม่พบข้อมูลปีสำหรับรายวิชานี้
+              </div>
+            )}
+            
+            {comparisonType === "yearly" && course2Years.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  เลือกปี
+                </label>
+                <select
+                  className="w-full p-2 border border-gray-300 rounded-lg"
+                  value={selectedYear2}
+                  onChange={handleYear2Change}
+                  disabled={isLoading}
+                >
+                  <option value="">-- เลือกปี --</option>
+                  {course2Years.map((year, index) => (
+                    <option key={`y2-${index}`} value={year}>
+                      {formatThaiYear(year)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {course2Data && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-lg mb-2">ข้อมูลที่เลือก</h4>
+                <p>วิชา: {course2Data.courseName} ({course2Data.courseId})</p>
+                <p>
+                  {course2Data.selectedType === 'month' ? 'เดือน: ' :
+                  course2Data.selectedType === 'year' ? 'ปี: ' : 'วันที่: '}
+                  {course2Data.selectedType === 'month' ? formatThaiMonth(course2Data.selectedDate) :
+                  course2Data.selectedType === 'year' ? formatThaiYear(course2Data.selectedDate) :
+                  formatDateTime(course2Data.selectedDate)}
+                </p>
+                <p>จำนวนการตรวจจับทั้งหมด: {course2Data.totalDetections}</p>
+              </div>
+            )}
+          </div>
+        </div>
         
         {isLoading && (
           <div className="text-center mb-8">
@@ -621,7 +1175,7 @@ export default function CompareCourses() {
           >
             เปรียบเทียบข้อมูล
           </button>
-          </div>
+        </div>
         
         {/* Comparison Results */}
         {comparisonData && (
@@ -649,7 +1203,13 @@ export default function CompareCourses() {
                 <h4 className="font-medium text-lg mb-2">
                   {course1Data.courseName} ({course1Data.courseId})
                 </h4>
-                <p>วันที่: {course1Data.selectedDate ? formatDateTime(course1Data.selectedDate) : formatDateTime(selectedTime1)}</p>
+                <p>
+                  {course1Data.selectedType === 'month' ? 'เดือน: ' :
+                  course1Data.selectedType === 'year' ? 'ปี: ' : 'วันที่: '}
+                  {course1Data.selectedType === 'month' ? formatThaiMonth(course1Data.selectedDate) :
+                  course1Data.selectedType === 'year' ? formatThaiYear(course1Data.selectedDate) :
+                  formatDateTime(course1Data.selectedDate)}
+                </p>
                 <p>จำนวนการตรวจจับทั้งหมด: {course1Data.totalDetections}</p>
                 <div className="mt-2">
                   <p>ความสุข: {course1Data.happy} ({((course1Data.happy / course1Data.totalDetections) * 100).toFixed(1)}%)</p>
@@ -666,7 +1226,13 @@ export default function CompareCourses() {
                 <h4 className="font-medium text-lg mb-2">
                   {course2Data.courseName} ({course2Data.courseId})
                 </h4>
-                <p>วันที่: {course2Data.selectedDate ? formatDateTime(course2Data.selectedDate) : formatDateTime(selectedTime2)}</p>
+                <p>
+                  {course2Data.selectedType === 'month' ? 'เดือน: ' :
+                  course2Data.selectedType === 'year' ? 'ปี: ' : 'วันที่: '}
+                  {course2Data.selectedType === 'month' ? formatThaiMonth(course2Data.selectedDate) :
+                  course2Data.selectedType === 'year' ? formatThaiYear(course2Data.selectedDate) :
+                  formatDateTime(course2Data.selectedDate)}
+                </p>
                 <p>จำนวนการตรวจจับทั้งหมด: {course2Data.totalDetections}</p>
                 <div className="mt-2">
                   <p>ความสุข: {course2Data.happy} ({((course2Data.happy / course2Data.totalDetections) * 100).toFixed(1)}%)</p>

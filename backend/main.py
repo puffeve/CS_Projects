@@ -46,6 +46,11 @@ current_course_name = None
 current_course_term = None
 current_course_year = None
 
+# เพิ่มตัวแปรติดตามการเชื่อมต่อที่ใช้งานอยู่
+active_connections = set()
+processing_active = False
+tasks = []
+
 # HTTP endpoint สำหรับตั้งค่าข้อมูลรายวิชา
 @app.post("/set-course-data")
 async def set_course_data(course_data: dict):
@@ -145,10 +150,21 @@ async def set_course(websocket: WebSocket):
 
 # ฟังก์ชันสำหรับจับอารมณ์เด่นทุก 5 วินาที
 async def capture_dominant_emotion_every_5sec():
-    global frame_emotion_data, dominant_emotions_5sec, last_5sec_snapshot_time
+    global frame_emotion_data, dominant_emotions_5sec, last_5sec_snapshot_time, processing_active
     
     while True:
         await asyncio.sleep(1)  # ตรวจสอบทุกวินาที
+        
+        # ตรวจสอบว่ามีการเชื่อมต่อที่ใช้งานอยู่หรือไม่
+        if not active_connections:
+            processing_active = False
+            # รีเซ็ตข้อมูลเมื่อไม่มีการเชื่อมต่อ
+            if frame_emotion_data:
+                frame_emotion_data = []
+                print("ไม่มีการเชื่อมต่อที่ใช้งานอยู่ ล้างข้อมูลอารมณ์")
+            continue
+        
+        processing_active = True
         current_time = datetime.now()
         
         # ตรวจสอบว่าถึงเวลาจับภาพทุก 5 วินาทีหรือไม่
@@ -207,10 +223,15 @@ async def capture_dominant_emotion_every_5sec():
 
 # ฟังก์ชันสำหรับสรุปอารมณ์ทุก 30 วินาที
 async def summarize_emotion_every_30sec():
-    global dominant_emotions_5sec, current_course_id, current_course_name, current_course_term, current_course_year
+    global dominant_emotions_5sec, current_course_id, current_course_name, current_course_term, current_course_year, processing_active
     
     while True:
         await asyncio.sleep(30)  # สรุปทุก 30 วินาที
+        
+        # ตรวจสอบว่ามีการประมวลผลที่ใช้งานอยู่หรือไม่
+        if not processing_active or not active_connections:
+            print("ข้ามการสรุปข้อมูลอารมณ์ เนื่องจากไม่มีการประมวลผลที่ใช้งานอยู่หรือไม่มีการเชื่อมต่อที่ใช้งานอยู่")
+            continue
         
         print(f"สถานะตัวแปร global ปัจจุบัน:")
         print(f"  รหัสวิชา: {current_course_id}")
@@ -294,18 +315,20 @@ async def summarize_emotion_every_30sec():
             except Exception as e:
                 print(f"เกิดข้อผิดพลาดในการสรุปข้อมูลอารมณ์ 30 วินาที: {e}")
                 print(traceback.format_exc())
-            
-            # ไม่ล้างข้อมูล dominant_emotions_5sec เพื่อให้มีการทับซ้อนข้อมูลบางส่วน
-            # แต่จะมีการจำกัดขนาดใน capture_dominant_emotion_every_5sec
 
 @app.websocket("/emotion-detection")
 async def emotion_detection(websocket: WebSocket):
     await websocket.accept()
+    print("INFO:     connection open")
+    
+    connection_id = id(websocket)  # ใช้ ID ของออบเจกต์ WebSocket เพื่อระบุการเชื่อมต่อที่ไม่ซ้ำกัน
+    active_connections.add(connection_id)
+    
     cap = cv2.VideoCapture(0)
     global frame_emotion_data, last_detection_time
     
     try:
-        while True:
+        while connection_id in active_connections:
             current_time = datetime.now()
             ret, frame = cap.read()
             if not ret:
@@ -368,17 +391,25 @@ async def emotion_detection(websocket: WebSocket):
             await asyncio.sleep(0.1)
 
     except WebSocketDisconnect:
+        print("INFO:     connection closed")
         print("WebSocket ถูกตัดการเชื่อมต่อ")
     except Exception as e:
         print(f"เกิดข้อผิดพลาด: {e}")
     finally:
+        active_connections.discard(connection_id)
         cap.release()
+        print(f"ทำความสะอาดทรัพยากรสำหรับการเชื่อมต่อ {connection_id}")
 
 @app.on_event("startup")
 async def on_startup():
+    global tasks
+    
     # เริ่มทั้งสองงานพร้อมกัน
-    asyncio.create_task(capture_dominant_emotion_every_5sec())
-    asyncio.create_task(summarize_emotion_every_30sec())
+    task1 = asyncio.create_task(capture_dominant_emotion_every_5sec())
+    task2 = asyncio.create_task(summarize_emotion_every_30sec())
+    
+    # เก็บการอ้างอิงไปยังงานเพื่อให้สามารถยกเลิกได้ในภายหลังถ้าจำเป็น
+    tasks = [task1, task2]
 
 # เส้นทางรากสำหรับทดสอบ
 @app.get("/")

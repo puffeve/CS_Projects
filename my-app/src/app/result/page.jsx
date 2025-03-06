@@ -29,28 +29,28 @@ const ResultPage = ({ handleSignOut }) => {
   const isResultPage = pathname === "/result";
 
   const [selectedFilterYear, setSelectedFilterYear] = useState(null);
-const [selectedFilterMonth, setSelectedFilterMonth] = useState(null);
+  const [selectedFilterMonth, setSelectedFilterMonth] = useState(null);
 
-// สร้าง Function กรองข้อมูล
-const filterTimestampsByYearAndMonth = (timestamps) => {
-  return timestamps.filter(group => {
-    const date = new Date(group.date);
-    const matchYear = !selectedFilterYear || date.getFullYear() === parseInt(selectedFilterYear);
-    const matchMonth = !selectedFilterMonth || (date.getMonth() + 1) === parseInt(selectedFilterMonth);
-    return matchYear && matchMonth;
-  });
-};
+  // สร้าง Function กรองข้อมูล
+  const filterTimestampsByYearAndMonth = (timestamps) => {
+    return timestamps.filter(group => {
+      const date = new Date(group.date);
+      const matchYear = !selectedFilterYear || date.getFullYear() === parseInt(selectedFilterYear);
+      const matchMonth = !selectedFilterMonth || (date.getMonth() + 1) === parseInt(selectedFilterMonth);
+      return matchYear && matchMonth;
+    });
+  };
 
-// ดึงรายการปีและเดือนจาก timestamps
-const getUniqueYears = () => {
-  const years = new Set(timestamps.map(group => new Date(group.date).getFullYear()));
-  return Array.from(years).sort((a, b) => b - a);
-};
+  // ดึงรายการปีและเดือนจาก timestamps
+  const getUniqueYears = () => {
+    const years = new Set(timestamps.map(group => new Date(group.date).getFullYear()));
+    return Array.from(years).sort((a, b) => b - a);
+  };
 
-const getUniqueMonths = () => {
-  const months = new Set(timestamps.map(group => new Date(group.date).getMonth() + 1));
-  return Array.from(months).sort((a, b) => a - b);
-};
+  const getUniqueMonths = () => {
+    const months = new Set(timestamps.map(group => new Date(group.date).getMonth() + 1));
+    return Array.from(months).sort((a, b) => a - b);
+  };
 
   // โหลดข้อมูลจาก LocalStorage
   useEffect(() => {
@@ -341,9 +341,19 @@ const getUniqueMonths = () => {
     }
   };
   
-  // ฟังก์ชันสำหรับปิดป๊อปอัพ
+  // ฟังก์ชันสำหรับปิดป๊อปอัพ - แก้ไขให้รีเซ็ตสถานะทั้งหมดที่เกี่ยวข้อง
   const closeModal = () => {
     setShowModal(false);
+    setEmotionData(null);
+    setEmotionCounts(null);
+    setSelectedTime(null);
+    
+    // รีเซ็ตสถานะเพิ่มเติมตามประเภทการดู
+    if (viewMode === 'monthly') {
+      setSelectedMonth(null);
+    } else if (viewMode === 'yearly') {
+      setSelectedYear(null);
+    }
   };
 
   if (!selectedCourse) {
@@ -643,7 +653,7 @@ const getUniqueMonths = () => {
             
             <button
               onClick={closeModal}
-              className="mt-6 py-3 bg-red-500 hover:bg-red-600 text-white text-lg font-semibold rounded-lg"
+              className="mt-6 py-3 bg-red-500 hover:bg-red-600 text-white text-lg font-semibold rounded-lg w-full"
             >
               ปิด
             </button>
