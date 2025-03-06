@@ -287,6 +287,13 @@ export default function CompareCourses() {
 
   const handleCourse1Change = (e) => {
     const courseId = e.target.value;
+    
+    // เพิ่มเงื่อนไขป้องกันเลือกวิชาซ้ำ
+    if (courseId && courseId === course2) {
+      alert('กรุณาเลือกวิชาที่แตกต่างกัน');
+      return;
+    }
+  
     setCourse1(courseId);
     setSelectedTime1('');
     setCourse1Data(null);
@@ -299,9 +306,16 @@ export default function CompareCourses() {
       setCourse1Times([]);
     }
   };
-
+  
   const handleCourse2Change = (e) => {
     const courseId = e.target.value;
+    
+    // เพิ่มเงื่อนไขป้องกันเลือกวิชาซ้ำ
+    if (courseId && courseId === course1) {
+      alert('กรุณาเลือกวิชาที่แตกต่างกัน');
+      return;
+    }
+  
     setCourse2(courseId);
     setSelectedTime2('');
     setCourse2Data(null);
@@ -420,14 +434,18 @@ export default function CompareCourses() {
           <button onClick={() => router.push("/compare_result")} className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md ">
             เปรียบเทียบผลวิเคราะห์ในรายวิชาเดียวกัน
           </button>
-          {/* ลบปุ่มเปรียบเทียบผลวิเคราะห์ระหว่างรายวิชาออก */}
-          <button
-            onClick={handleBackClick}
-            className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4"
-          >
-            ย้อนกลับ
-          </button>
-        </div>
+          <button 
+        onClick={() => router.push('/compare_courses')}
+        className="w-full bg-sky-600 hover:bg-sky-400 text-white px-4 py-2 rounded-lg shadow-md "
+      >
+        เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา
+      </button>
+        <button
+          onClick={handleBackClick}
+          className="w-full bg-gray-400 hover:bg-gray-500 px-4 py-2 rounded-md text-white mt-4"
+        >
+          ย้อนกลับ
+        </button>
 
         <div className="absolute bottom-4 left-0 w-full px-4">
           <button
@@ -442,6 +460,7 @@ export default function CompareCourses() {
           </button>
         </div>
       </div>
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 p-8 overflow-y-auto">
@@ -455,124 +474,130 @@ export default function CompareCourses() {
         )}
         
         <div className="grid grid-cols-2 gap-6 mb-8">
-          {/* Course 1 Selection */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-xl font-semibold mb-4">วิชาที่ 1</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                เลือกวิชา
-              </label>
-              <select
-                className="w-full p-2 border border-gray-300 rounded-lg"
-                value={course1}
-                onChange={handleCourse1Change}
-                disabled={isLoading}
-              >
-                <option value="">-- เลือกวิชา --</option>
-                {courses.map((course) => (
-                  <option key={`c1-${course.courses_id}`} value={course.courses_id}>
-                    {course.courses_id} - {course.namecourses}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            {course1 && course1Times.length === 0 && !isLoading && (
-              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
-                ไม่พบข้อมูลเวลาสำหรับรายวิชานี้
-              </div>
-            )}
-            
-            {course1Times.length > 0 && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  เลือกวัน
-                </label>
-                <select
-                  className="w-full p-2 border border-gray-300 rounded-lg"
-                  value={selectedTime1}
-                  onChange={handleTime1Change}
-                  disabled={isLoading}
-                >
-                  <option value="">-- เลือกวัน --</option>
-                  {course1Times.map((time, index) => (
-                    <option key={`t1-${index}`} value={time}>
-                      {formatDateTime(time)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            
-            {course1Data && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-lg mb-2">ข้อมูลที่เลือก</h4>
-                <p>วิชา: {course1Data.courseName} ({course1Data.courseId})</p>
-                <p>วันที่: {course1Data.selectedDate ? formatDateTime(course1Data.selectedDate) : formatDateTime(selectedTime1)}</p>
-                <p>จำนวนการตรวจจับทั้งหมด: {course1Data.totalDetections}</p>
-              </div>
-            )}
-          </div>
-          
-          {/* Course 2 Selection */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-xl font-semibold mb-4">วิชาที่ 2</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                เลือกวิชา
-              </label>
-              <select
-                className="w-full p-2 border border-gray-300 rounded-lg"
-                value={course2}
-                onChange={handleCourse2Change}
-                disabled={isLoading}
-              >
-                <option value="">-- เลือกวิชา --</option>
-                {courses.map((course) => (
-                  <option key={`c2-${course.courses_id}`} value={course.courses_id}>
-                    {course.courses_id} - {course.namecourses}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            {course2 && course2Times.length === 0 && !isLoading && (
-              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
-                ไม่พบข้อมูลเวลาสำหรับรายวิชานี้
-              </div>
-            )}
-            
-            {course2Times.length > 0 && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  เลือกวัน
-                </label>
-                <select
-                  className="w-full p-2 border border-gray-300 rounded-lg"
-                  value={selectedTime2}
-                  onChange={handleTime2Change}
-                  disabled={isLoading}
-                >
-                  <option value="">-- เลือกวัน --</option>
-                  {course2Times.map((time, index) => (
-                    <option key={`t2-${index}`} value={time}>
-                      {formatDateTime(time)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            
-            {course2Data && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-lg mb-2">ข้อมูลที่เลือก</h4>
-                <p>วิชา: {course2Data.courseName} ({course2Data.courseId})</p>
-                <p>วันที่: {course2Data.selectedDate ? formatDateTime(course2Data.selectedDate) : formatDateTime(selectedTime2)}</p>
-                <p>จำนวนการตรวจจับทั้งหมด: {course2Data.totalDetections}</p>
-              </div>
-            )}
-          </div>
-        </div>
+  {/* Course 1 Selection */}
+  <div className="bg-white p-6 rounded-lg shadow">
+    <h3 className="text-xl font-semibold mb-4">วิชาที่ 1</h3>
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        เลือกวิชา
+      </label>
+      <select
+        className="w-full p-2 border border-gray-300 rounded-lg"
+        value={course1}
+        onChange={handleCourse1Change}
+        disabled={isLoading}
+      >
+        <option value="">-- เลือกวิชา --</option>
+        {courses
+          .filter((course) => course.courses_id.toString() !== course2)
+          .map((course) => (
+            <option key={`c1-${course.courses_id}`} value={course.courses_id}>
+              {course.courses_id} - {course.namecourses}
+            </option>
+          ))
+        }
+      </select>
+    </div>
+    
+    {course1 && course1Times.length === 0 && !isLoading && (
+      <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
+        ไม่พบข้อมูลเวลาสำหรับรายวิชานี้
+      </div>
+    )}
+    
+    {course1Times.length > 0 && (
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          เลือกวัน
+        </label>
+        <select
+          className="w-full p-2 border border-gray-300 rounded-lg"
+          value={selectedTime1}
+          onChange={handleTime1Change}
+          disabled={isLoading}
+        >
+          <option value="">-- เลือกวัน --</option>
+          {course1Times.map((time, index) => (
+            <option key={`t1-${index}`} value={time}>
+              {formatDateTime(time)}
+            </option>
+          ))}
+        </select>
+      </div>
+    )}
+    
+    {course1Data && (
+      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+        <h4 className="font-medium text-lg mb-2">ข้อมูลที่เลือก</h4>
+        <p>วิชา: {course1Data.courseName} ({course1Data.courseId})</p>
+        <p>วันที่: {course1Data.selectedDate ? formatDateTime(course1Data.selectedDate) : formatDateTime(selectedTime1)}</p>
+        <p>จำนวนการตรวจจับทั้งหมด: {course1Data.totalDetections}</p>
+      </div>
+    )}
+  </div>
+  
+  {/* Course 2 Selection */}
+  <div className="bg-white p-6 rounded-lg shadow">
+    <h3 className="text-xl font-semibold mb-4">วิชาที่ 2</h3>
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        เลือกวิชา
+      </label>
+      <select
+        className="w-full p-2 border border-gray-300 rounded-lg"
+        value={course2}
+        onChange={handleCourse2Change}
+        disabled={isLoading}
+      >
+        <option value="">-- เลือกวิชา --</option>
+        {courses
+          .filter((course) => course.courses_id.toString() !== course1)
+          .map((course) => (
+            <option key={`c2-${course.courses_id}`} value={course.courses_id}>
+              {course.courses_id} - {course.namecourses}
+            </option>
+          ))
+        }
+      </select>
+    </div>
+    
+    {course2 && course2Times.length === 0 && !isLoading && (
+      <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
+        ไม่พบข้อมูลเวลาสำหรับรายวิชานี้
+      </div>
+    )}
+    
+    {course2Times.length > 0 && (
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          เลือกวัน
+        </label>
+        <select
+          className="w-full p-2 border border-gray-300 rounded-lg"
+          value={selectedTime2}
+          onChange={handleTime2Change}
+          disabled={isLoading}
+        >
+          <option value="">-- เลือกวัน --</option>
+          {course2Times.map((time, index) => (
+            <option key={`t2-${index}`} value={time}>
+              {formatDateTime(time)}
+            </option>
+          ))}
+        </select>
+      </div>
+    )}
+    
+    {course2Data && (
+      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+        <h4 className="font-medium text-lg mb-2">ข้อมูลที่เลือก</h4>
+        <p>วิชา: {course2Data.courseName} ({course2Data.courseId})</p>
+        <p>วันที่: {course2Data.selectedDate ? formatDateTime(course2Data.selectedDate) : formatDateTime(selectedTime2)}</p>
+        <p>จำนวนการตรวจจับทั้งหมด: {course2Data.totalDetections}</p>
+      </div>
+    )}
+  </div>
+</div>
         
         {isLoading && (
           <div className="text-center mb-8">
@@ -596,7 +621,7 @@ export default function CompareCourses() {
           >
             เปรียบเทียบข้อมูล
           </button>
-        </div>
+          </div>
         
         {/* Comparison Results */}
         {comparisonData && (
