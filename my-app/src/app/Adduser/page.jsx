@@ -10,15 +10,15 @@ const Sidebar = ({ userName, onLogout }) => {
       <div>
         <h1 className="text-2xl font-bold">ClassMood Insight</h1>
         {userName && <p className="text-lg font-semibold mt-4">สวัสดี {userName}</p>}
-        <hr className="border-sky-300 my-6" />
+        <hr className="border-black my-6" />
         <nav>
-          <a href="/searchacc" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลบัญชี</a>
-          <a href="/searchcourse" className="block py-2.5 px-4 mt-3 bg-sky-600 hover:bg-sky-400 rounded-lg">จัดการข้อมูลรายวิชา</a>
+          <a href="/searchacc" className="block py-2.5 px-4 mt-3 bg-pink-400 hover:bg-pink-300 text-white rounded-lg">จัดการข้อมูลบัญชี</a>
+          <a href="/searchcourse" className="block py-2.5 px-4 mt-3 bg-pink-400 hover:bg-pink-300 text-white rounded-lg">จัดการข้อมูลรายวิชา</a>
         </nav>
       </div>
       <button
         onClick={onLogout}
-        className="bg-pink-400 text-white px-4 py-2 rounded-lg"
+        className="bg-red-400 active:bg-[#1d2f3f] text-white px-4 py-2 rounded-lg"
       >
         ออกจากระบบ
       </button>
