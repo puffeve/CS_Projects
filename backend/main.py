@@ -380,7 +380,7 @@ async def emotion_detection(websocket: WebSocket):
                         "width": int(frame_width),
                         "height": int(frame_height)
                     },
-                    "emotion_data": current_frame_data,
+                    "emotion_data": current_frame_data,  # จำนวนใบหน้าสามารถดูได้จาก len(current_frame_data)
                     "detection_time": current_time.isoformat()
                 })
                 
