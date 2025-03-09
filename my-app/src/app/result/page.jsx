@@ -14,14 +14,12 @@ const ResultPage = ({ handleSignOut }) => {
   const [userName, setUserName] = useState("");
   const [timestamps, setTimestamps] = useState([]);
   const [monthlyTimestamps, setMonthlyTimestamps] = useState([]);
-  const [yearlyTimestamps, setYearlyTimestamps] = useState([]);
   const [emotionData, setEmotionData] = useState(null);
   const [emotionCounts, setEmotionCounts] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedTime, setSelectedTime] = useState(null);
   const [viewMode, setViewMode] = useState('daily');
   const router = useRouter();
-  const [selectedYear, setSelectedYear] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
   // เพิ่ม state สำหรับข้อมูลจำนวนใบหน้า
   const [faceCountData, setFaceCountData] = useState({
@@ -43,6 +41,9 @@ const ResultPage = ({ handleSignOut }) => {
     negativeEmotionPeaks: [],
     emotionTimeline: []
   });
+  
+  // เพิ่ม state สำหรับเก็บข้อมูลเรียงตามวันในมุมมองรายเดือน
+  const [monthlyDailyData, setMonthlyDailyData] = useState([]);
 
   const pathname = usePathname();
   const isResultPage = pathname === "/result";
@@ -110,12 +111,6 @@ const ResultPage = ({ handleSignOut }) => {
     return `${formattedMonth.replace(/\s\d+/, '')} พ.ศ. ${buddhistYear}`;
   };
 
-  const formatYear = (yearString) => {
-    const year = parseInt(yearString);
-    const buddhistYear = year + 543;
-    return `พ.ศ. ${buddhistYear}`;
-  };
-
   const convertToLocalTime = (detection_time) => {
     const date = new Date(detection_time);
     const localTime = date.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
@@ -129,72 +124,6 @@ const ResultPage = ({ handleSignOut }) => {
     }
   }, [selectedCourse]);
 
-  // ฟังก์ชันในการจัดกลุ่ม timestamp ตามปี
-  const groupTimestampsByYear = (timestamps) => {
-    const grouped = {};
-  
-    timestamps.forEach((item) => {
-      const date = new Date(item.detection_time);
-      const yearString = `${date.getFullYear()}`;
-  
-      if (!grouped[yearString]) {
-        grouped[yearString] = {
-          timestamps: [],
-          startTime: item.detection_time,
-          endTime: item.detection_time,
-        };
-      }
-  
-      grouped[yearString].timestamps.push(item.detection_time);
-  
-      // หาค่าเริ่มต้นและสิ้นสุดของปี
-      if (new Date(item.detection_time) < new Date(grouped[yearString].startTime)) {
-        grouped[yearString].startTime = item.detection_time;
-      }
-      if (new Date(item.detection_time) > new Date(grouped[yearString].endTime)) {
-        grouped[yearString].endTime = item.detection_time;
-      }
-    });
-  
-    return Object.keys(grouped).map((year) => ({
-      year,
-      timestamps: grouped[year].timestamps,
-      startTime: grouped[year].startTime,
-      endTime: grouped[year].endTime,
-    }));
-  };
-
-  // ดึง detection_time และจัดกลุ่มทั้งรายวันและรายเดือน
-  const fetchTimestamps = async () => {
-    if (!selectedCourse) return;
-  
-    try {
-      const { data, error } = await supabase
-        .from("emotion_detection")
-        .select("detection_time")
-        .eq("courses_id", selectedCourse.courses_id);
-  
-      if (error) throw error;
-  
-      // เรียง detection_time ตามลำดับเวลา
-      const sortedTimestamps = data.sort((a, b) => new Date(a.detection_time) - new Date(b.detection_time));
-  
-      // กลุ่ม detection_time ตามวันที่
-      const groupedTimestamps = groupTimestampsByDate(sortedTimestamps);
-      setTimestamps(groupedTimestamps);
-
-      // กลุ่ม detection_time ตามเดือน
-      const groupedMonthlyTimestamps = groupTimestampsByMonth(sortedTimestamps);
-      setMonthlyTimestamps(groupedMonthlyTimestamps);
-
-      // กลุ่ม detection_time ตามปี
-      const groupedYearlyTimestamps = groupTimestampsByYear(sortedTimestamps);
-      setYearlyTimestamps(groupedYearlyTimestamps);
-    } catch (error) {
-      console.error("Error fetching timestamps:", error.message);
-    }
-  };
-  
   // ฟังก์ชันในการจัดกลุ่ม timestamp ตามวัน (เดิม)
   const groupTimestampsByDate = (timestamps) => {
     const grouped = {};
@@ -268,6 +197,33 @@ const ResultPage = ({ handleSignOut }) => {
       startTime: grouped[month].startTime,
       endTime: grouped[month].endTime,
     }));
+  };
+
+  // ดึง detection_time และจัดกลุ่มทั้งรายวันและรายเดือน
+  const fetchTimestamps = async () => {
+    if (!selectedCourse) return;
+  
+    try {
+      const { data, error } = await supabase
+        .from("emotion_detection")
+        .select("detection_time")
+        .eq("courses_id", selectedCourse.courses_id);
+  
+      if (error) throw error;
+  
+      // เรียง detection_time ตามลำดับเวลา
+      const sortedTimestamps = data.sort((a, b) => new Date(a.detection_time) - new Date(b.detection_time));
+  
+      // กลุ่ม detection_time ตามวันที่
+      const groupedTimestamps = groupTimestampsByDate(sortedTimestamps);
+      setTimestamps(groupedTimestamps);
+
+      // กลุ่ม detection_time ตามเดือน
+      const groupedMonthlyTimestamps = groupTimestampsByMonth(sortedTimestamps);
+      setMonthlyTimestamps(groupedMonthlyTimestamps);
+    } catch (error) {
+      console.error("Error fetching timestamps:", error.message);
+    }
   };
 
   // ฟังก์ชันวิเคราะห์ช่วงเวลาของคาบ (ต้นคาบ, กลางคาบ, ท้ายคาบ)
@@ -407,54 +363,83 @@ const ResultPage = ({ handleSignOut }) => {
     };
   };
 
-  // ปรับปรุงฟังก์ชันดึงข้อมูลอารมณ์ให้รองรับการดึงข้อมูลรายปี
+  // ฟังก์ชันดึงข้อมูลอารมณ์ (ปรับปรุงใหม่)
   const fetchEmotionData = async (period, periodType = 'daily') => {  
-    console.log('Fetching Emotion Data:', { period, periodType });  // แสดงข้อมูลช่วงเวลาที่กำลังดึงข้อมูลอารมณ์
+    console.log('Fetching Emotion Data:', { period, periodType });
   
     if (!selectedCourse || !period) return;
   
     try {
-      let startOfPeriod, endOfPeriod;  // กำหนดตัวแปรสำหรับช่วงเวลาเริ่มต้นและสิ้นสุด
+      let startOfPeriod, endOfPeriod;
       
-      if (periodType === 'yearly') {    // ถ้าประเภทช่วงเวลาเป็นรายปี
-        const year = parseInt(period);   // แปลงค่าปีจาก string เป็นตัวเลข
-        startOfPeriod = new Date(year, 0, 1);       //วันที่เริ่มต้นของปี 0 คือ มกราคม ,1 คือวันที่ 1
-        endOfPeriod = new Date(year, 11, 31, 23, 59, 59, 999);    //11 คือ ธันวาคม 31 คือวันที่สุดท้าย 23:59:59:999 คือเวลา
-        setSelectedYear(period);
-      } else if (periodType === 'monthly') {    // ถ้าประเภทช่วงเวลาเป็นรายเดือน
-        const [year, month] = period.split('-').map(Number); // แยกค่าปีและเดือนจาก string และแปลงเป็นตัวเลข
+      if (periodType === 'monthly') {    // สำหรับมุมมองรายเดือน
+        const [year, month] = period.split('-').map(Number);
         console.log('Monthly Period Details:', { year, month });
         
-        startOfPeriod = new Date(year, month - 1, 1); // วันที่เริ่มต้นของเดือน (JavaScript ใช้ index เดือนเริ่มที่ 0)
-        endOfPeriod = new Date(year, month, 0);  // วันที่สิ้นสุดของเดือน (ใส่วันที่ 0 จะได้วันสุดท้ายของเดือนก่อนหน้า)
-        endOfPeriod.setHours(23, 59, 59, 999);  // กำหนดเวลาเป็น 23:59:59.999
+        startOfPeriod = new Date(year, month - 1, 1);
+        endOfPeriod = new Date(year, month, 0);
+        endOfPeriod.setHours(23, 59, 59, 999);
         
-        setSelectedMonth(period);  // บันทึกเดือนที่เลือก
-      } else {  // ถ้าเป็นช่วงเวลารายวัน
-        startOfPeriod = new Date(period);   // แปลงค่า period เป็น Date
-        endOfPeriod = new Date(startOfPeriod);    // คัดลอกค่าจาก startOfPeriod
-        endOfPeriod.setDate(startOfPeriod.getDate() + 1);  // กำหนดให้ช่วงเวลาสิ้นสุดเป็นวันถัดไป
+        setSelectedMonth(period);
+      } else {  // สำหรับมุมมองรายวัน
+        startOfPeriod = new Date(period);
+        endOfPeriod = new Date(startOfPeriod);
+        endOfPeriod.setDate(startOfPeriod.getDate() + 1);
       }
   
       const startOfPeriodISO = startOfPeriod.toISOString();
       const endOfPeriodISO = endOfPeriod.toISOString();
   
-      // แก้ไขให้ดึงข้อมูล num_faces และ detection_time ด้วย
       const { data, error } = await supabase
         .from("emotion_detection")
         .select("emotion, num_faces, detection_time")
-        .eq("courses_id", selectedCourse.courses_id)  // ค้นหาข้อมูลที่ตรงกับคอร์สที่เลือก
-        .gte("detection_time", startOfPeriodISO)   // กรองข้อมูลที่มีเวลามากกว่าหรือเท่ากับ startOfPeriod
-        .lt("detection_time", endOfPeriodISO);  // กรองข้อมูลที่มีเวลาน้อยกว่า endOfPeriod
+        .eq("courses_id", selectedCourse.courses_id)
+        .gte("detection_time", startOfPeriodISO)
+        .lt("detection_time", endOfPeriodISO);
   
       if (error) throw error;
+      
+      // สำหรับมุมมองรายเดือน เราจะต้องจัดกลุ่มข้อมูลตามวัน
+      if (periodType === 'monthly') {
+        // จัดกลุ่มข้อมูลตามวัน
+        const groupedByDay = {};
+        
+        data.forEach(item => {
+          const date = new Date(item.detection_time);
+          const dayString = date.toISOString().split('T')[0]; // ดึงเฉพาะส่วน YYYY-MM-DD
+          
+          if (!groupedByDay[dayString]) {
+            groupedByDay[dayString] = {
+              date: dayString,
+              items: [],
+              emotionCounts: {
+                Happiness: 0, Sadness: 0, Anger: 0, Fear: 0, Surprise: 0, Neutral: 0, Disgusted: 0
+              }
+            };
+          }
+          
+          groupedByDay[dayString].items.push(item);
+          
+          // นับจำนวนอารมณ์แต่ละประเภทในวันนั้น
+          if (item.emotion in groupedByDay[dayString].emotionCounts) {
+            groupedByDay[dayString].emotionCounts[item.emotion] += 1;
+          }
+        });
+        
+        // แปลงเป็น array และเรียงตามวันที่
+        const dailyData = Object.values(groupedByDay).sort((a, b) => 
+          new Date(a.date) - new Date(b.date)
+        );
+        
+        setMonthlyDailyData(dailyData);
+      }
   
       // วิเคราะห์ข้อมูลแบ่งตามช่วงเวลาของคาบ
       const periodAnalysisResult = analyzePeriods(data, startOfPeriodISO, endOfPeriodISO);
       setPeriodAnalysis(periodAnalysisResult);
       
       // เตรียมข้อมูลอารมณ์
-      const emotions = {   //สร้างตัวแปรเก็บค่าอารมณ์ โดยเริ่มจาก 0
+      const emotions = {
         Happy: 0,
         Sad: 0,
         Angry: 0,
@@ -464,7 +449,7 @@ const ResultPage = ({ handleSignOut }) => {
         Disgusted: 0,
       };
       
-      const emotionMapping = {  //สร้างตัวแปร emotionMapping เพื่อแมปชื่ออารมณ์
+      const emotionMapping = {
         'Happiness': 'Happy',
         'Sadness': 'Sad',
         'Anger': 'Angry',
@@ -474,7 +459,7 @@ const ResultPage = ({ handleSignOut }) => {
         'Disgusted': 'Disgusted'
       };
 
-      // คำนวณจำนวนใบหน้าที่ไม่ซ้ำกัน (เพื่อป้องกันการนับซ้ำ)
+      // คำนวณจำนวนใบหน้าที่ไม่ซ้ำกัน
       const uniqueFaceIds = new Set();
       let totalFaces = 0;
       let faceCounts = [];
@@ -488,8 +473,6 @@ const ResultPage = ({ handleSignOut }) => {
         
         // เก็บข้อมูลจำนวนใบหน้า
         if (item.num_faces !== null && item.num_faces !== undefined) {
-          // สร้าง ID เฉพาะสำหรับแต่ละรายการเพื่อป้องกันการนับซ้ำ
-          // ในกรณีนี้เราใช้ detection_time เป็นตัวบ่งชี้ที่ไม่ซ้ำกัน
           const faceIdentifier = item.detection_time;
           
           if (!uniqueFaceIds.has(faceIdentifier)) {
@@ -507,37 +490,38 @@ const ResultPage = ({ handleSignOut }) => {
       // อัปเดตข้อมูลจำนวนใบหน้า
       setFaceCountData({
         totalFaces,
-        avgFaces: 0, // ไม่ต้องการค่าเฉลี่ยแล้ว
+        avgFaces: 0,
         maxFaces,
         minFaces
       });
       
       // คำนวณเปอร์เซ็นต์
-      const totalDetections = data.length;  //นับจำนวนข้อมูลทั้งหมด (จำนวนอารมณ์ที่ถูกตรวจจับ)
-      const emotionPercentages = {};   // ตัวแปรเก็บค่าเปอร์เซ็นต์
+      const totalDetections = data.length;
+      const emotionPercentages = {};
       
-      for (const emotion in emotions) {  //ใช้ for...in วนลูปคำนวณเปอร์เซ็นต์ของแต่ละอารมณ์
+      for (const emotion in emotions) {
         const percent = totalDetections > 0
-          ? (emotions[emotion] / totalDetections) * 100   // คำนวณเป็นเปอร์เซ็นต์
+          ? (emotions[emotion] / totalDetections) * 100
           : 0;
-        emotionPercentages[emotion] = parseFloat(percent.toFixed(1));    //parseFloat() แปลงค่าเป็นตัวเลขจริง (ไม่ใช่สตริง) , ใช้ toFixed(1) ปัดเป็นทศนิยม 1 ตำแหน่ง
+        emotionPercentages[emotion] = parseFloat(percent.toFixed(1));
       }
       
-      setEmotionCounts(emotions);  // อัปเดต state ของจำนวนอารมณ์ที่ตรวจจับได้
-      setEmotionData(emotionPercentages);  // อัปเดต state ของเปอร์เซ็นต์อารมณ์
-      setSelectedTime({ start: startOfPeriodISO, end: endOfPeriodISO });  // บันทึกช่วงเวลาที่เลือก
-      setShowModal(true); // แสดง Modal กราฟอารมณ์
+      setEmotionCounts(emotions);
+      setEmotionData(emotionPercentages);
+      setSelectedTime({ start: startOfPeriodISO, end: endOfPeriodISO });
+      setShowModal(true);
     } catch (error) {
       console.error("Error fetching emotion data:", error.message);
     }
   };
   
-  // ฟังก์ชันสำหรับปิดป๊อปอัพ - แก้ไขให้รีเซ็ตสถานะทั้งหมดที่เกี่ยวข้อง
+  // ฟังก์ชันสำหรับปิดป๊อปอัพ
   const closeModal = () => {
     setShowModal(false);
     setEmotionData(null);
     setEmotionCounts(null);
     setSelectedTime(null);
+    setMonthlyDailyData([]);
     setFaceCountData({
       totalFaces: 0,
       avgFaces: 0,
@@ -556,11 +540,8 @@ const ResultPage = ({ handleSignOut }) => {
       emotionTimeline: []
     });
     
-    // รีเซ็ตสถานะเพิ่มเติมตามประเภทการดู
     if (viewMode === 'monthly') {
       setSelectedMonth(null);
-    } else if (viewMode === 'yearly') {
-      setSelectedYear(null);
     }
   };
 
@@ -707,7 +688,7 @@ const ResultPage = ({ handleSignOut }) => {
         </div>
 
         {/* ปุ่มสลับโหมดการดู */}
-         <div className="my-4 flex space-x-4">
+        <div className="my-4 flex space-x-4">
           <button
             onClick={() => setViewMode('daily')}
             className={`px-4 py-2 rounded-lg ${
@@ -728,72 +709,61 @@ const ResultPage = ({ handleSignOut }) => {
           >
             ดูผลวิเคราะห์รายเดือน
           </button>
-          <button
-            onClick={() => setViewMode('yearly')}
-            className={`px-4 py-2 rounded-lg ${
-              viewMode === 'yearly'
-                ? 'bg-pink-500 text-white'
-                : 'bg-gray-200 text-gray-700'
-            }`}
-          >
-            ดูผลวิเคราะห์รายปี
-          </button>
         </div>
   
         {/* แสดงรายการปุ่ม timestamp */}
         <div className="mt-6 space-y-4">
           <h3 className="text-xl font-semibold mb-3">เลือกวัน/เวลาที่ต้องการดูผลวิเคราะห์</h3>
           
-          
-  {viewMode === 'daily' && timestamps.length > 0 ? (
-  <div>
-    {/* Group timestamps by month */}
-    {Object.entries(
-      timestamps.reduce((acc, group) => {
-        const monthKey = new Date(group.date).toLocaleString('default', { year: 'numeric', month: 'long' });
-        if (!acc[monthKey]) acc[monthKey] = [];  // ถ้ายังไม่มี key สำหรับเดือนนี้ ให้สร้าง array ใหม่
-        acc[monthKey].push(group);  // เพิ่มข้อมูลเข้าไปใน array ของเดือนนั้น
-        return acc;
-      }, {})
-    ).map(([month, monthGroups]) => ( // แปลงข้อมูลเป็น array ของ key-value เพื่อ map ไปแสดงผล
-      <div key={month} className="mb-6">
-        <h4 className="bg-pink-100 px-2 py-1 rounded text-xl font-semibold text-gray-700 mb-4">{month}</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {monthGroups.map((group, index) => (   // วนลูปข้อมูลของเดือนนั้น
-            <div key={index} className="space-y-2">
-              <p className="text-lg font-semibold text-gray-700">
-                {formatDate(new Date(group.date))}  {/* แปลง timestamp เป็นรูปแบบวันที่ */}
-              </p>
-              <button
-                onClick={() => fetchEmotionData(group.date, 'daily')}
-                className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
-                </svg>
-                <span>วันที่และเวลา : {convertToLocalTime(group.startTime)} ถึง {new Date(group.endTime).toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-              </button>
+          {viewMode === 'daily' && timestamps.length > 0 ? (
+            <div>
+              {/* Group timestamps by month */}
+              {Object.entries(
+                timestamps.reduce((acc, group) => {
+                  const monthKey = new Date(group.date).toLocaleString('default', { year: 'numeric', month: 'long' });
+                  if (!acc[monthKey]) acc[monthKey] = [];
+                  acc[monthKey].push(group);
+                  return acc;
+                }, {})
+              ).map(([month, monthGroups]) => (
+                <div key={month} className="mb-6">
+                  <h4 className="bg-pink-100 px-2 py-1 rounded text-xl font-semibold text-gray-700 mb-4">{month}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {monthGroups.map((group, index) => (
+                      <div key={index} className="space-y-2">
+                        <p className="text-lg font-semibold text-gray-700">
+                          {formatDate(new Date(group.date))}
+                        </p>
+                        <button
+                          onClick={() => fetchEmotionData(group.date, 'daily')}
+                          className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
+                          </svg>
+                          <span>วันที่และเวลา : {convertToLocalTime(group.startTime)} ถึง {new Date(group.endTime).toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
-    ))}
-  </div>
-          ) :  viewMode === 'monthly' && monthlyTimestamps.length > 0 ? (
+          ) : viewMode === 'monthly' && monthlyTimestamps.length > 0 ? (
             <div>
               {/* Group timestamps by year */}
               {Object.entries(
                 monthlyTimestamps.reduce((acc, group) => {
-                  const date = new Date(group.month + '-01'); // แปลงเดือนเป็นวันที่ 1 ของเดือนนั้น
-                  const yearKey = date.getFullYear().toString(); // ดึงค่าปีออกมาเป็น key
+                  const date = new Date(group.month + '-01');
+                  const yearKey = date.getFullYear().toString();
                   if (!acc[yearKey]) acc[yearKey] = [];
                   acc[yearKey].push(group);
                   return acc;
                 }, {})
-              ).map(([year, yearGroups]) => (  // วนลูปปีที่จัดกลุ่มไว้
+              ).map(([year, yearGroups]) => (
                 <div key={year} className="mb-6">
                   <h4 className="bg-pink-100 px-2 py-1 rounded text-xl font-semibold text-gray-700 mb-4">
-                    {formatYear(year)}
+                    {new Date(year, 0).getFullYear() + 543} (พ.ศ.)
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     {yearGroups.map((group, index) => (
@@ -802,36 +772,17 @@ const ResultPage = ({ handleSignOut }) => {
                           {formatMonth(group.month)}
                         </p>
                         <button
-                          onClick={() => fetchEmotionData(group.month, 'monthly')} // ดึงข้อมูลรายเดือน
+                          onClick={() => fetchEmotionData(group.month, 'monthly')}
                           className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
                           </svg>
-                          <span>ช่วงเวลา: {convertToLocalTime(group.startTime)} ถึง {convertToLocalTime(group.endTime)}</span>
+                          <span>ช่วงเวลา: {formatMonth(group.month)}</span>
                         </button>
                       </div>
                     ))}
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : viewMode === 'yearly' && yearlyTimestamps.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {yearlyTimestamps.map((group, index) => (
-                <div key={index} className="space-y-2">
-                  <p className="text-lg font-semibold text-gray-700">
-                    {formatYear(group.year)}
-                  </p>
-                  <button
-                    onClick={() => fetchEmotionData(group.year, 'yearly')} // ดึงข้อมูลรายปี
-                    className="block w-full bg-white border border-gray-300 text-gray-700 py-3 px-6 rounded-lg shadow-md hover:bg-gray-100 transition duration-300 flex items-center space-x-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-blue-500">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 4h10M4 11h16M4 15h16M4 19h16" />
-                    </svg>
-                    <span>ช่วงเวลา: {convertToLocalTime(group.startTime)} ถึง {convertToLocalTime(group.endTime)}</span>
-                  </button>
                 </div>
               ))}
             </div>
@@ -841,7 +792,7 @@ const ResultPage = ({ handleSignOut }) => {
         </div>
       </div>
 
-      {/* ป๊อปอัพแสดงกราฟพายด้วยข้อมูลที่คำนวณตามแบบ prepareComparisonData */}
+      {/* ป๊อปอัพแสดงผลการวิเคราะห์ */}
       {showModal && emotionData && (
         <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-700 bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-6xl h-5/6 relative flex flex-col p-6 overflow-y-auto">
@@ -849,13 +800,11 @@ const ResultPage = ({ handleSignOut }) => {
               กราฟแสดงผลอารมณ์ {
                 viewMode === 'daily' 
                   ? formatDate(new Date(selectedTime.start)) 
-                  : viewMode === 'monthly'
-                    ? formatMonth(selectedMonth)
-                    : formatYear(selectedYear)
+                  : formatMonth(selectedMonth)
               }
             </h3>
             
-            {/* ส่วนแสดงข้อมูลจำนวนใบหน้า - แก้ไขข้อความตามที่ต้องการพร้อมคำอธิบายเพิ่มเติม */}
+            {/* ส่วนแสดงข้อมูลจำนวนใบหน้า */}
             <div className="bg-blue-50 p-3 rounded-lg mb-4">
               <div className="flex flex-wrap gap-4 justify-between">
                 <div className="text-center bg-white p-2 rounded-lg shadow flex-1">
@@ -866,12 +815,10 @@ const ResultPage = ({ handleSignOut }) => {
                 <div className="text-center bg-white p-2 rounded-lg shadow flex-1">
                   <h4 className="text-blue-600 font-semibold">จำนวนใบหน้าสูงสุดในคาบนี้</h4>
                   <p className="text-2xl font-bold">{faceCountData.maxFaces} ใบหน้า</p>
-                  
                 </div>
                 <div className="text-center bg-white p-2 rounded-lg shadow flex-1">
                   <h4 className="text-blue-600 font-semibold">จำนวนใบหน้าต่ำสุดในคาบนี้</h4>
                   <p className="text-2xl font-bold">{faceCountData.minFaces} ใบหน้า</p>
-                  
                 </div>
               </div>
               <div className="mt-2 bg-yellow-50 p-2 rounded-lg border border-yellow-200">
@@ -881,7 +828,44 @@ const ResultPage = ({ handleSignOut }) => {
               </div>
             </div>
 
-            {/* ส่วนแสดงผลการวิเคราะห์ช่วงเวลาและอารมณ์ด้านลบ - ทำให้เข้าใจง่ายขึ้น */}
+            {/* ส่วนอธิบายการคำนวณอารมณ์ */}
+            <div className="bg-violet-50 p-3 rounded-lg mb-4 border border-violet-200">
+              <h4 className="text-lg font-semibold text-violet-800 mb-2 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                วิธีการคำนวณกลุ่มอารมณ์
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                <div className="bg-white p-3 rounded-lg shadow border-l-4 border-yellow-400">
+                  <p className="font-medium text-yellow-600 mb-1">อารมณ์เชิงบวก (Positive)</p>
+                  <ul className="list-disc ml-5 text-sm text-gray-700">
+                    <li>ความสุข (Happy/Happiness)</li>
+                    <li>ความประหลาดใจ (Surprised/Surprise)</li>
+                  </ul>
+                  <p className="text-xs text-gray-500 mt-2 italic">เปอร์เซ็นต์อารมณ์เชิงบวกมากกว่า 60% = บรรยากาศเชิงบวก</p>
+                </div>
+                <div className="bg-white p-3 rounded-lg shadow border-l-4 border-red-400">
+                  <p className="font-medium text-red-600 mb-1">อารมณ์เชิงลบ (Negative)</p>
+                  <ul className="list-disc ml-5 text-sm text-gray-700">
+                    <li>ความเศร้า (Sad/Sadness)</li>
+                    <li>ความโกรธ (Angry/Anger)</li>
+                    <li>ความกลัว (Fearful/Fear)</li>
+                    <li>ความรังเกียจ (Disgusted/Disgust)</li>
+                  </ul>
+                  <p className="text-xs text-gray-500 mt-2 italic">เปอร์เซ็นต์อารมณ์เชิงลบมากกว่า 40% = ควรปรับวิธีการสอน</p>
+                </div>
+                <div className="bg-white p-3 rounded-lg shadow border-l-4 border-gray-400">
+                  <p className="font-medium text-gray-600 mb-1">อารมณ์เป็นกลาง (Neutral)</p>
+                  <ul className="list-disc ml-5 text-sm text-gray-700">
+                    <li>เป็นกลาง (Neutral)</li>
+                  </ul>
+                  <p className="text-xs text-gray-500 mt-2 italic">เปอร์เซ็นต์อารมณ์เป็นกลางมากกว่า 50% = ควรเพิ่มกิจกรรมที่น่าสนใจ</p>
+                </div>
+              </div>
+            </div>
+
+            {/* ส่วนแสดงผลการวิเคราะห์ช่วงเวลาที่มีอารมณ์ด้านลบ */}
             {periodAnalysis && periodAnalysis.negativeEmotionPeaks && periodAnalysis.negativeEmotionPeaks.length > 0 && (
               <div className="bg-amber-50 p-3 rounded-lg mb-4">
                 <h4 className="text-amber-800 font-semibold text-lg mb-2">การวิเคราะห์ช่วงเวลาที่มีอารมณ์ด้านลบ</h4>
@@ -889,6 +873,21 @@ const ResultPage = ({ handleSignOut }) => {
                   {periodAnalysis.negativeEmotionPeaks.map((peak, index) => {
                     const startTime = new Date(peak.startTime);
                     const endTime = new Date(peak.endTime);
+                    
+                    // ปรับรูปแบบการแสดงผลสำหรับมุมมองรายเดือน
+                    let timeDisplay;
+                    if (viewMode === 'monthly') {
+                      // รูปแบบสำหรับมุมมองรายเดือน: วันที่ เดือน พ.ศ. เวลา hh:mm ถึง hh:mm น.
+                      const day = startTime.getDate();
+                      const month = startTime.toLocaleString('th-TH', { month: 'long' });
+                      const year = startTime.getFullYear() + 543; // แปลงเป็นปี พ.ศ.
+                      
+                      timeDisplay = `วันที่ ${day} ${month} พ.ศ. ${year} เวลา ${startTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} ถึง ${endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+                    } else {
+                      // รูปแบบสำหรับมุมมองรายวัน: เวลา hh:mm ถึง hh:mm น.
+                      timeDisplay = `${startTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} ถึง ${endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+                    }
+                    
                     return (
                       <div key={index} className="bg-white p-3 rounded-lg shadow border-l-4 border-amber-500">
                         <div className="flex items-center gap-2 mb-1">
@@ -902,7 +901,7 @@ const ResultPage = ({ handleSignOut }) => {
                         </div>
                         <div className="ml-7">
                           <p className="text-gray-700">
-                            <span className="font-medium">ช่วงเวลา:</span> {startTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} ถึง {endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                            <span className="font-medium">ช่วงเวลา:</span> {timeDisplay}
                           </p>
                           <p className="text-sm text-amber-700 mt-1">
                             อาจเกิดจากเนื้อหายากหรือการสอนที่เร็วเกินไป ควรพิจารณาทบทวนเนื้อหาหรือปรับจังหวะการสอนในช่วงเวลานี้
@@ -914,123 +913,79 @@ const ResultPage = ({ handleSignOut }) => {
                 </div>
               </div>
             )}
-{/* เพิ่มส่วนอธิบายการคำนวณอารมณ์เพื่อความเข้าใจของผู้ใช้ - ใส่หลังจากส่วนแสดงข้อมูลจำนวนใบหน้า */}
-<div className="bg-violet-50 p-3 rounded-lg mb-4 border border-violet-200">
-  <h4 className="text-lg font-semibold text-violet-800 mb-2 flex items-center">
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-    วิธีการคำนวณกลุ่มอารมณ์
-  </h4>
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-    <div className="bg-white p-3 rounded-lg shadow border-l-4 border-yellow-400">
-      <p className="font-medium text-yellow-600 mb-1">อารมณ์เชิงบวก (Positive)</p>
-      <ul className="list-disc ml-5 text-sm text-gray-700">
-        <li>ความสุข (Happy/Happiness)</li>
-        <li>ความประหลาดใจ (Surprised/Surprise)</li>
-      </ul>
-      <p className="text-xs text-gray-500 mt-2 italic">เปอร์เซ็นต์อารมณ์เชิงบวกมากกว่า 60% = บรรยากาศเชิงบวก</p>
-    </div>
-    <div className="bg-white p-3 rounded-lg shadow border-l-4 border-red-400">
-      <p className="font-medium text-red-600 mb-1">อารมณ์เชิงลบ (Negative)</p>
-      <ul className="list-disc ml-5 text-sm text-gray-700">
-        <li>ความเศร้า (Sad/Sadness)</li>
-        <li>ความโกรธ (Angry/Anger)</li>
-        <li>ความกลัว (Fearful/Fear)</li>
-        <li>ความรังเกียจ (Disgusted/Disgust)</li>
-      </ul>
-      <p className="text-xs text-gray-500 mt-2 italic">เปอร์เซ็นต์อารมณ์เชิงลบมากกว่า 40% = ควรปรับวิธีการสอน</p>
-    </div>
-    <div className="bg-white p-3 rounded-lg shadow border-l-4 border-gray-400">
-      <p className="font-medium text-gray-600 mb-1">อารมณ์เป็นกลาง (Neutral)</p>
-      <ul className="list-disc ml-5 text-sm text-gray-700">
-        <li>เป็นกลาง (Neutral)</li>
-      </ul>
-      <p className="text-xs text-gray-500 mt-2 italic">เปอร์เซ็นต์อารมณ์เป็นกลางมากกว่า 50% = ควรเพิ่มกิจกรรมที่น่าสนใจ</p>
-    </div>
-  </div>
-  <div className="mt-3 text-sm bg-white p-2 rounded-lg border border-violet-100">
-    <p className="text-violet-800">
-      <span className="font-medium">วิธีการคำนวณ:</span> ระบบจะนับจำนวนอารมณ์ทั้งหมดที่ตรวจจับได้ และคำนวณเปอร์เซ็นต์ของแต่ละกลุ่มอารมณ์ เพื่อวิเคราะห์บรรยากาศในชั้นเรียนโดยรวม กลุ่มที่มีเปอร์เซ็นต์สูงกว่าเกณฑ์จะถูกนำมาใช้ในการให้คำแนะนำเพื่อปรับปรุงการเรียนการสอน
-    </p>
-  </div>
-</div>
-            {/* วิเคราะห์ช่วงของคาบเรียน - เพิ่มแผนภูมิแท่งเพื่อให้เห็นภาพชัดเจนขึ้น */}
+
+            {/* วิเคราะห์ช่วงของคาบเรียน */}
             {periodAnalysis && periodAnalysis.periods && (
               <div className="bg-green-50 p-3 rounded-lg mb-4">
                 <h4 className="text-green-800 font-semibold text-lg mb-2">การวิเคราะห์ตามช่วงคาบเรียน</h4>
                 
-                {/* เพิ่มแผนภูมิแท่งเปรียบเทียบช่วงคาบ */}
-                {/* This is the updated section with the modified labels */}
-<div className="mb-4" style={{ height: "200px" }}>
-  <Bar
-    data={{
-      labels: ['ต้นคาบ', 'กลางคาบ', 'ท้ายคาบ'],
-      datasets: [
-        {
-          label: 'จำนวนการตรวจจับอารมณ์จากใบหน้าของนักเรียนทั้งหมด',
-          data: [
-            periodAnalysis.periods.early.faces,
-            periodAnalysis.periods.middle.faces,
-            periodAnalysis.periods.late.faces
-          ],
-          backgroundColor: 'rgba(54, 162, 235, 0.7)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1
-        },
-        {
-          label: 'อารมณ์ด้านลบ จากจำนวนการตรวจจับอารมณ์จากใบหน้า',
-          data: [
-            periodAnalysis.periods.early.negativeCount,
-            periodAnalysis.periods.middle.negativeCount,
-            periodAnalysis.periods.late.negativeCount
-          ],
-          backgroundColor: 'rgba(255, 99, 132, 0.7)',
-          borderColor: 'rgba(255, 99, 132, 1)',
-          borderWidth: 1
-        }
-      ]
-    }}
-    options={{
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'top',
-          labels: {
-            font: {
-              size: 12
-            }
-          }
-        },
-        tooltip: {
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          titleColor: '#000',
-          bodyColor: '#000',
-          callbacks: {
-            label: (context) => {
-              return `${context.dataset.label}: ${context.raw} ครั้ง`;
-            }
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'จำนวน (ครั้ง)'
-          },
-          ticks: {
-            stepSize: 1
-          }
-        }
-      }
-    }}
-  />
-</div>
+                {/* แผนภูมิแท่งเปรียบเทียบช่วงคาบ */}
+                <div className="mb-4" style={{ height: "200px" }}>
+                  <Bar
+                    data={{
+                      labels: ['ต้นคาบ', 'กลางคาบ', 'ท้ายคาบ'],
+                      datasets: [
+                        {
+                          label: 'จำนวนการตรวจจับอารมณ์จากใบหน้าของนักเรียนทั้งหมด',
+                          data: [
+                            periodAnalysis.periods.early.faces,
+                            periodAnalysis.periods.middle.faces,
+                            periodAnalysis.periods.late.faces
+                          ],
+                          backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                          borderColor: 'rgba(54, 162, 235, 1)',
+                          borderWidth: 1
+                        },
+                        {
+                          label: 'อารมณ์ด้านลบ จากจำนวนการตรวจจับอารมณ์จากใบหน้า',
+                          data: [
+                            periodAnalysis.periods.early.negativeCount,
+                            periodAnalysis.periods.middle.negativeCount,
+                            periodAnalysis.periods.late.negativeCount
+                          ],
+                          backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                          borderColor: 'rgba(255, 99, 132, 1)',
+                          borderWidth: 1
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'top',
+                          labels: {
+                            font: {
+                              size: 12
+                            }
+                          }
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: (context) => {
+                              return `${context.dataset.label}: ${context.raw} ครั้ง`;
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          title: {
+                            display: true,
+                            text: 'จำนวน (ครั้ง)'
+                          },
+                          ticks: {
+                            stepSize: 1
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
                 
-                  <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="bg-white p-3 rounded-lg shadow">
                     <h5 className="font-medium text-center border-b pb-1 mb-2 text-blue-700">ต้นคาบ</h5>
                     <div className="text-center mb-2">
@@ -1080,277 +1035,411 @@ const ResultPage = ({ handleSignOut }) => {
               </div>
             )}
             
-                  <div className="flex-grow overflow-auto">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
-                    <div className="flex items-center justify-center h-full">
-                      <div className="w-full h-full" style={{ minHeight: "400px" }}>
-                        <Pie
-                          data={{
-                            labels: ["ความสุข", "ความเศร้า", "ความโกรธ", "ความกลัว", "ความประหลาดใจ", "เป็นกลาง", "ความรังเกียจ"],
-                            datasets: [
-                              {
-                                data: [
-                                  emotionData.Happy,
-                                  emotionData.Sad,
-                                  emotionData.Angry,
-                                  emotionData.Fearful,
-                                  emotionData.Surprised,
-                                  emotionData.Neutral,
-                                  emotionData.Disgusted,
-                                ],
-                                backgroundColor: ["#FFD700", "#A8C6FD", "#FFA7A7", "#B1B1B1", "#F0B1FB", "#E3E3E3", "#B3FDC2"],
-                              },
+            {/* กราฟพาย */}
+            <div className="flex-grow overflow-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
+                <div className="flex items-center justify-center h-full">
+                  <div className="w-full h-full" style={{ minHeight: "400px" }}>
+                    <Pie
+                      data={{
+                        labels: ["ความสุข", "ความเศร้า", "ความโกรธ", "ความกลัว", "ความประหลาดใจ", "เป็นกลาง", "ความรังเกียจ"],
+                        datasets: [
+                          {
+                            data: [
+                              emotionData.Happy,
+                              emotionData.Sad,
+                              emotionData.Angry,
+                              emotionData.Fearful,
+                              emotionData.Surprised,
+                              emotionData.Neutral,
+                              emotionData.Disgusted,
                             ],
-                          }}
-                          options={{
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                              tooltip: {
-                                bodyFont: {
-                                  size: 16
-                                },
-                                callbacks: {
-                                  label: (context) => `${context.label}: ${context.raw}%`,
-                                },
-                              },
-                              legend: {
-                                position: 'bottom',
-                                labels: {
-                                  padding: 20,
-                                  font: {
-                                    size: 16
-                                  }
-                                }
-                              }
+                            backgroundColor: ["#FFD700", "#A8C6FD", "#FFA7A7", "#B1B1B1", "#F0B1FB", "#E3E3E3", "#B3FDC2"],
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          tooltip: {
+                            bodyFont: {
+                              size: 16
                             },
-                          }}
-                          height={400}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="p-4 flex flex-col h-full">
-                      <h4 className="text-xl font-semibold mb-4">รายละเอียดอารมณ์</h4>
-                      <div className="overflow-auto flex-grow">
-                        <table className="w-full border-collapse">
-                          <thead>
-                            <tr className="bg-gray-100">
-                              <th className="border px-4 py-3 text-left">อารมณ์</th>
-                              <th className="border px-4 py-3 text-right">เปอร์เซ็นต์</th>
-                              <th className="border px-4 py-3 text-right">จำนวนที่ตรวจจับได้</th>
+                            callbacks: {
+                              label: (context) => `${context.label}: ${context.raw}%`,
+                            },
+                          },
+                          legend: {
+                            position: 'bottom',
+                            labels: {
+                              padding: 20,
+                              font: {
+                                size: 16
+                              }
+                            }
+                          }
+                        },
+                      }}
+                      height={400}
+                    />
+                  </div>
+                </div>
+                
+                <div className="p-4 flex flex-col h-full">
+                  <h4 className="text-xl font-semibold mb-4">รายละเอียดอารมณ์</h4>
+                  <div className="overflow-auto flex-grow">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border px-4 py-3 text-left">อารมณ์</th>
+                          <th className="border px-4 py-3 text-right">เปอร์เซ็นต์</th>
+                          <th className="border px-4 py-3 text-right">จำนวนที่ตรวจจับได้</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {emotionCounts && Object.keys(emotionCounts).map((emotion, index) => {
+                          const emotionToThai = {
+                            "Happy": "ความสุข",
+                            "Sad": "ความเศร้า",
+                            "Angry": "ความโกรธ",
+                            "Fearful": "ความกลัว",
+                            "Surprised": "ความประหลาดใจ",
+                            "Neutral": "เป็นกลาง",
+                            "Disgusted": "ความรังเกียจ"
+                          };
+                          
+                          return (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+                              <td className="border px-4 py-3 text-lg">{emotionToThai[emotion]}</td>
+                              <td className="border px-4 py-3 text-right text-lg">{emotionData[emotion]}%</td>
+                              <td className="border px-4 py-3 text-right text-lg">{emotionCounts[emotion]} ครั้ง</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {emotionCounts && Object.keys(emotionCounts).map((emotion, index) => {
-                              const emotionToThai = {
-                                "Happy": "ความสุข",
-                                "Sad": "ความเศร้า",
-                                "Angry": "ความโกรธ",
-                                "Fearful": "ความกลัว",
-                                "Surprised": "ความประหลาดใจ",
-                                "Neutral": "เป็นกลาง",
-                                "Disgusted": "ความรังเกียจ"
-                              };
-                              
-                              return (
-                                <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                                  <td className="border px-4 py-3 text-lg">{emotionToThai[emotion]}</td>
-                                  <td className="border px-4 py-3 text-right text-lg">{emotionData[emotion]}%</td>
-                                  <td className="border px-4 py-3 text-right text-lg">{emotionCounts[emotion]} ครั้ง</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* ไทม์ไลน์อารมณ์ - แสดงตามวันสำหรับมุมมองรายเดือน */}
+            {viewMode === 'monthly' && monthlyDailyData.length > 0 ? (
+              <div className="mt-4 bg-gray-50 p-4 rounded-lg shadow-md">
+                <h4 className="text-xl font-semibold mb-2">ไทม์ไลน์อารมณ์ตามวันในเดือน {formatMonth(selectedMonth)}</h4>
+                <div style={{ height: "300px" }}>
+                  <Line
+                    data={{
+                      labels: monthlyDailyData.map(day => {
+                        const date = new Date(day.date);
+                        return `วันที่ ${date.getDate()}`;
+                      }),
+                      datasets: [
+                        {
+                          label: 'ความสุข',
+                          data: monthlyDailyData.map(day => day.emotionCounts.Happiness || 0),
+                          borderColor: '#FFD700',
+                          backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความเศร้า',
+                          data: monthlyDailyData.map(day => day.emotionCounts.Sadness || 0),
+                          borderColor: '#4682B4',
+                          backgroundColor: 'rgba(70, 130, 180, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความโกรธ',
+                          data: monthlyDailyData.map(day => day.emotionCounts.Anger || 0),
+                          borderColor: '#FF6347',
+                          backgroundColor: 'rgba(255, 99, 71, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความกลัว',
+                          data: monthlyDailyData.map(day => day.emotionCounts.Fear || 0),
+                          borderColor: '#9932CC',
+                          backgroundColor: 'rgba(153, 50, 204, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความประหลาดใจ',
+                          data: monthlyDailyData.map(day => day.emotionCounts.Surprise || 0),
+                          borderColor: '#00CED1',
+                          backgroundColor: 'rgba(0, 206, 209, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'เป็นกลาง',
+                          data: monthlyDailyData.map(day => day.emotionCounts.Neutral || 0),
+                          borderColor: '#A9A9A9',
+                          backgroundColor: 'rgba(169, 169, 169, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความรังเกียจ',
+                          data: monthlyDailyData.map(day => day.emotionCounts.Disgusted || 0),
+                          borderColor: '#8B4513',
+                          backgroundColor: 'rgba(139, 69, 19, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'top',
+                          labels: {
+                            padding: 15,
+                            font: {
+                              size: 12
+                            },
+                            usePointStyle: true,
+                            boxWidth: 8
+                          }
+                        },
+                        tooltip: {
+                          callbacks: {
+                            title: (context) => {
+                              const dayIndex = context[0].dataIndex;
+                              const day = monthlyDailyData[dayIndex];
+                              return formatDate(new Date(day.date));
+                            },
+                            label: (context) => {
+                              return `${context.dataset.label}: ${context.formattedValue} ครั้ง`;
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          title: {
+                            display: true,
+                            text: 'จำนวน (ครั้ง)',
+                            font: {
+                              size: 14,
+                              weight: 'bold'
+                            }
+                          },
+                          ticks: {
+                            stepSize: 1,
+                            precision: 0
+                          }
+                        },
+                        x: {
+                          title: {
+                            display: true,
+                            text: 'วันที่',
+                            font: {
+                              size: 14,
+                              weight: 'bold'
+                            }
+                          }
+                        }
+                      },
+                      interaction: {
+                        mode: 'index',
+                        intersect: false
+                      }
+                    }}
+                  />
+                </div>
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-start space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm text-gray-700">กราฟนี้แสดงการเปลี่ยนแปลงของอารมณ์พื้นฐานของนักเรียนในแต่ละวันตลอดเดือน {formatMonth(selectedMonth)}</p>
+                      <p className="text-sm text-gray-700 mt-1">วางเมาส์บนกราฟเพื่อดูข้อมูลอารมณ์ในแต่ละวันได้</p>
                     </div>
                   </div>
                 </div>
+              </div>
+            ) : viewMode === 'daily' && periodAnalysis && periodAnalysis.emotionTimeline && periodAnalysis.emotionTimeline.length > 0 && (
+              <div className="mt-4 bg-gray-50 p-4 rounded-lg shadow-md">
+                <h4 className="text-xl font-semibold mb-2">ไทม์ไลน์อารมณ์ตลอดคาบเรียน</h4>
+                <div style={{ height: "300px" }}>
+                  <Line
+                    data={{
+                      labels: periodAnalysis.emotionTimeline.map(item => {
+                        const time = new Date(item.time);
+                        return time.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                      }),
+                      datasets: [
+                        {
+                          label: 'ความสุข',
+                          data: periodAnalysis.emotionTimeline.map(item => {
+                            return (item.emotions.Happiness || 0) + (item.emotions.Happy || 0);
+                          }),
+                          borderColor: '#FFD700',
+                          backgroundColor: 'rgba(255, 215, 0, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความเศร้า',
+                          data: periodAnalysis.emotionTimeline.map(item => {
+                            return (item.emotions.Sadness || 0) + (item.emotions.Sad || 0);
+                          }),
+                          borderColor: '#4682B4',
+                          backgroundColor: 'rgba(70, 130, 180, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความโกรธ',
+                          data: periodAnalysis.emotionTimeline.map(item => {
+                            return (item.emotions.Anger || 0) + (item.emotions.Angry || 0);
+                          }),
+                          borderColor: '#FF6347',
+                          backgroundColor: 'rgba(255, 99, 71, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความกลัว',
+                          data: periodAnalysis.emotionTimeline.map(item => {
+                            return (item.emotions.Fear || 0) + (item.emotions.Fearful || 0);
+                          }),
+                          borderColor: '#9932CC',
+                          backgroundColor: 'rgba(153, 50, 204, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความประหลาดใจ',
+                          data: periodAnalysis.emotionTimeline.map(item => {
+                            return (item.emotions.Surprise || 0) + (item.emotions.Surprised || 0);
+                          }),
+                          borderColor: '#00CED1',
+                          backgroundColor: 'rgba(0, 206, 209, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'เป็นกลาง',
+                          data: periodAnalysis.emotionTimeline.map(item => {
+                            return item.emotions.Neutral || 0;
+                          }),
+                          borderColor: '#A9A9A9',
+                          backgroundColor: 'rgba(169, 169, 169, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        },
+                        {
+                          label: 'ความรังเกียจ',
+                          data: periodAnalysis.emotionTimeline.map(item => {
+                            return (item.emotions.Disgust || 0) + (item.emotions.Disgusted || 0);
+                          }),
+                          borderColor: '#8B4513',
+                          backgroundColor: 'rgba(139, 69, 19, 0.2)',
+                          borderWidth: 3,
+                          pointRadius: 4,
+                          tension: 0.3
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'top',
+                          labels: {
+                            padding: 15,
+                            font: {
+                              size: 12
+                            },
+                            usePointStyle: true,
+                            boxWidth: 8
+                          }
+                        },
+                        tooltip: {
+                          callbacks: {
+                            title: (context) => {
+                              return `เวลา: ${context[0].label}`;
+                            },
+                            label: (context) => {
+                              return `${context.dataset.label}: ${context.formattedValue} ครั้ง`;
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          title: {
+                            display: true,
+                            text: 'จำนวน (ครั้ง)',
+                            font: {
+                              size: 14,
+                              weight: 'bold'
+                            }
+                          },
+                          ticks: {
+                            stepSize: 1,
+                            precision: 0
+                          }
+                        },
+                        x: {
+                          title: {
+                            display: true,
+                            text: 'เวลา',
+                            font: {
+                              size: 14,
+                              weight: 'bold'
+                            }
+                          }
+                        }
+                      },
+                      interaction: {
+                        mode: 'index',
+                        intersect: false
+                      }
+                    }}
+                  />
+                </div>
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-start space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm text-gray-700">กราฟนี้แสดงการเปลี่ยนแปลงของทั้ง 7 อารมณ์พื้นฐานของนักเรียนตลอดคาบเรียน</p>
+                      <p className="text-sm text-gray-700 mt-1">อาจารย์สามารถวางเมาส์บนกราฟเพื่อดูข้อมูลทุกอารมณ์ ณ เวลานั้นๆ ได้พร้อมกัน</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             
-            {/* เพิ่มส่วนการแสดงผลไทม์ไลน์อารมณ์ที่เข้าใจง่ายขึ้น */}
-            {periodAnalysis && periodAnalysis.emotionTimeline && periodAnalysis.emotionTimeline.length > 0 && (
-  <div className="mt-4 bg-gray-50 p-4 rounded-lg shadow-md">
-    <h4 className="text-xl font-semibold mb-2">ไทม์ไลน์อารมณ์ตลอดคาบเรียน</h4>
-    <div style={{ height: "300px" }}>
-      <Line
-        data={{
-          labels: periodAnalysis.emotionTimeline.map(item => {
-            const time = new Date(item.time);
-            return time.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-          }),
-          datasets: [
-            {
-              label: 'ความสุข',
-              data: periodAnalysis.emotionTimeline.map(item => {
-                return (item.emotions.Happiness || 0) + (item.emotions.Happy || 0);
-              }),
-              borderColor: '#FFD700', // สีเหลืองทอง
-              backgroundColor: 'rgba(255, 215, 0, 0.2)',
-              borderWidth: 3,
-              pointRadius: 4,
-              tension: 0.3
-            },
-            {
-              label: 'ความเศร้า',
-              data: periodAnalysis.emotionTimeline.map(item => {
-                return (item.emotions.Sadness || 0) + (item.emotions.Sad || 0);
-              }),
-              borderColor: '#4682B4', // สีฟ้า
-              backgroundColor: 'rgba(70, 130, 180, 0.2)',
-              borderWidth: 3,
-              pointRadius: 4,
-              tension: 0.3
-            },
-            {
-              label: 'ความโกรธ',
-              data: periodAnalysis.emotionTimeline.map(item => {
-                return (item.emotions.Anger || 0) + (item.emotions.Angry || 0);
-              }),
-              borderColor: '#FF6347', // สีแดงส้ม
-              backgroundColor: 'rgba(255, 99, 71, 0.2)',
-              borderWidth: 3,
-              pointRadius: 4,
-              tension: 0.3
-            },
-            {
-              label: 'ความกลัว',
-              data: periodAnalysis.emotionTimeline.map(item => {
-                return (item.emotions.Fear || 0) + (item.emotions.Fearful || 0);
-              }),
-              borderColor: '#9932CC', // สีม่วง
-              backgroundColor: 'rgba(153, 50, 204, 0.2)',
-              borderWidth: 3,
-              pointRadius: 4,
-              tension: 0.3
-            },
-            {
-              label: 'ความประหลาดใจ',
-              data: periodAnalysis.emotionTimeline.map(item => {
-                return (item.emotions.Surprise || 0) + (item.emotions.Surprised || 0);
-              }),
-              borderColor: '#00CED1', // สีฟ้าอมเขียว
-              backgroundColor: 'rgba(0, 206, 209, 0.2)',
-              borderWidth: 3,
-              pointRadius: 4,
-              tension: 0.3
-            },
-            {
-              label: 'เป็นกลาง',
-              data: periodAnalysis.emotionTimeline.map(item => {
-                return item.emotions.Neutral || 0;
-              }),
-              borderColor: '#A9A9A9', // สีเทา
-              backgroundColor: 'rgba(169, 169, 169, 0.2)',
-              borderWidth: 3,
-              pointRadius: 4,
-              tension: 0.3
-            },
-            {
-              label: 'ความรังเกียจ',
-              data: periodAnalysis.emotionTimeline.map(item => {
-                return (item.emotions.Disgust || 0) + (item.emotions.Disgusted || 0);
-              }),
-              borderColor: '#8B4513', // สีน้ำตาล
-              backgroundColor: 'rgba(139, 69, 19, 0.2)',
-              borderWidth: 3,
-              pointRadius: 4,
-              tension: 0.3
-            }
-          ]
-        }}
-        options={{
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: {
-                padding: 15,
-                font: {
-                  size: 12
-                },
-                usePointStyle: true,
-                boxWidth: 8
-              }
-            },
-            tooltip: {
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              titleColor: '#000',
-              bodyColor: '#000',
-              bodyFont: {
-                size: 14
-              },
-              padding: 12,
-              borderColor: '#ddd',
-              borderWidth: 1,
-              cornerRadius: 6,
-              displayColors: true,
-              callbacks: {
-                title: (context) => {
-                  return `เวลา: ${context[0].label}`;
-                },
-                label: (context) => {
-                  return `${context.dataset.label}: ${context.formattedValue} ครั้ง`;
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'จำนวนนักเรียน (คน)',
-                font: {
-                  size: 14,
-                  weight: 'bold'
-                }
-              },
-              grid: {
-                color: 'rgba(0, 0, 0, 0.1)'
-              },
-              ticks: {
-                stepSize: 1,
-                precision: 0
-              }
-            },
-            x: {
-              title: {
-                display: true,
-                text: 'เวลา',
-                font: {
-                  size: 14,
-                  weight: 'bold'
-                }
-              },
-              grid: {
-                color: 'rgba(0, 0, 0, 0.1)'
-              }
-            }
-          },
-          interaction: {
-            mode: 'index',
-            intersect: false
-          }
-        }}
-      />
-    </div>
-    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-      <div className="flex items-start space-x-2">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <div>
-          <p className="text-sm text-gray-700">กราฟนี้แสดงการเปลี่ยนแปลงของทั้ง 7 อารมณ์พื้นฐานของนักเรียนตลอดคาบเรียน ได้แก่ ความสุข, ความเศร้า, ความโกรธ, ความกลัว, ความประหลาดใจ, เป็นกลาง และความรังเกียจ</p>
-          <p className="text-sm text-gray-700 mt-1">อาจารย์สามารถวางเมาส์บนกราฟเพื่อดูข้อมูลทุกอารมณ์ ณ เวลานั้นๆ ได้พร้อมกัน</p>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-            
-            {/* เพิ่มส่วนการวิเคราะห์และข้อเสนอแนะ */}
+            {/* การวิเคราะห์และข้อเสนอแนะ */}
             <div className="mt-6 bg-indigo-50 p-4 rounded-lg">
               <h4 className="text-xl font-semibold text-indigo-800 mb-2">การวิเคราะห์และข้อเสนอแนะ</h4>
               <ul className="list-disc pl-6 space-y-2">

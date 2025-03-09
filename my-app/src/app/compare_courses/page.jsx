@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line, LineChart } from 'recharts';
 
 export default function CompareCourses() {
   const [userName, setUserName] = useState('');
@@ -17,7 +17,7 @@ export default function CompareCourses() {
   const router = useRouter();
   
   // Comparison Type State
-  const [comparisonType, setComparisonType] = useState("daily"); // "daily", "monthly", or "yearly"
+  const [comparisonType, setComparisonType] = useState("daily"); // "daily" or "monthly"
   
   // Daily Comparison States
   const [course1Times, setCourse1Times] = useState([]);
@@ -30,12 +30,27 @@ export default function CompareCourses() {
   const [course2Months, setCourse2Months] = useState([]);
   const [selectedMonth1, setSelectedMonth1] = useState('');
   const [selectedMonth2, setSelectedMonth2] = useState('');
+
+  // New states for enhanced analysis
+  const [faceCountData, setFaceCountData] = useState({
+    course1: { totalFaces: 0, maxFaces: 0, minFaces: 0 },
+    course2: { totalFaces: 0, maxFaces: 0, minFaces: 0 }
+  });
   
-  // Yearly Comparison States
-  const [course1Years, setCourse1Years] = useState([]);
-  const [course2Years, setCourse2Years] = useState([]);
-  const [selectedYear1, setSelectedYear1] = useState('');
-  const [selectedYear2, setSelectedYear2] = useState('');
+  const [periodAnalysis, setPeriodAnalysis] = useState({
+    course1: null,
+    course2: null
+  });
+  
+  const [emotionTimelines, setEmotionTimelines] = useState({
+    course1: [],
+    course2: []
+  });
+  
+  const [analysisInsights, setAnalysisInsights] = useState({
+    course1: [],
+    course2: []
+  });
 
   useEffect(() => {
     // Load user data on component mount
@@ -85,6 +100,182 @@ export default function CompareCourses() {
     }
   };
 
+  // Enhanced period analysis function
+  const analyzePeriods = (data, startTime, endTime) => {
+    if (!data || data.length === 0) return null;
+
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const totalDuration = end - start;
+    
+    // แบ่งช่วงเวลาเป็น 3 ส่วน (ต้นคาบ, กลางคาบ, ท้ายคาบ)
+    const periodDuration = totalDuration / 3;
+    
+    // สร้างจุดแบ่งเวลา
+    const earlyEnd = new Date(start.getTime() + periodDuration);
+    const middleEnd = new Date(start.getTime() + (periodDuration * 2));
+    
+    // สร้างโครงสร้างข้อมูลเพื่อรวบรวมอารมณ์ในแต่ละช่วง
+    const periods = {
+      early: { emotions: {}, count: 0, faces: 0, negativeCount: 0 },
+      middle: { emotions: {}, count: 0, faces: 0, negativeCount: 0 },
+      late: { emotions: {}, count: 0, faces: 0, negativeCount: 0 }
+    };
+    
+    // อารมณ์ด้านลบ
+    const negativeEmotions = ['sadness', 'anger', 'fear', 'disgust', 'sad', 'angry', 'fearful', 'disgusted'];
+    
+    // สร้างข้อมูลสำหรับกราฟไทม์ไลน์อารมณ์
+    const timelineData = {};
+
+    // วนลูปวิเคราะห์ข้อมูลแต่ละรายการ
+    data.forEach(item => {
+      const itemTime = new Date(item.detection_time);
+      const emotion = item.emotion.toLowerCase();
+      const numFaces = item.num_faces || 0;
+      
+      // บันทึกข้อมูลสำหรับกราฟไทม์ไลน์
+      const timeKey = itemTime.toISOString();
+      if (!timelineData[timeKey]) {
+        timelineData[timeKey] = {
+          time: timeKey,
+          timestamp: itemTime,
+          emotions: {},
+          totalFaces: 0
+        };
+      }
+      
+      if (!timelineData[timeKey].emotions[emotion]) {
+        timelineData[timeKey].emotions[emotion] = 0;
+      }
+      timelineData[timeKey].emotions[emotion]++;
+      timelineData[timeKey].totalFaces += numFaces;
+      
+      // จัดลงช่วงเวลา
+      let period;
+      if (itemTime <= earlyEnd) {
+        period = periods.early;
+      } else if (itemTime <= middleEnd) {
+        period = periods.middle;
+      } else {
+        period = periods.late;
+      }
+      
+      // เพิ่มข้อมูลอารมณ์ในช่วงนั้น
+      if (!period.emotions[emotion]) {
+        period.emotions[emotion] = 0;
+      }
+      period.emotions[emotion]++;
+      period.count++;
+      period.faces += numFaces;
+      
+      // ตรวจสอบและนับอารมณ์ด้านลบ
+      if (negativeEmotions.includes(emotion)) {
+        period.negativeCount++;
+      }
+    });
+    
+    // ค้นหาจุดที่มีอารมณ์ด้านลบสูงสุด
+    let negativeEmotionPeaks = [];
+    const sortedTimeline = Object.values(timelineData)
+      .sort((a, b) => a.timestamp - b.timestamp);
+    
+    // คำนวณช่วงเวลาที่มีอารมณ์ด้านลบสูงสุด (ใช้ sliding window)
+    const windowSize = 3; // ตรวจสอบทุก 3 จุดเวลา
+    for (let i = 0; i <= sortedTimeline.length - windowSize; i++) {
+      let negativeCount = 0;
+      let totalFaces = 0;
+      let windowItems = [];
+      
+      for (let j = 0; j < windowSize; j++) {
+        if (i + j >= sortedTimeline.length) continue;
+        
+        const item = sortedTimeline[i + j];
+        let itemNegativeCount = 0;
+        
+        // นับอารมณ์ด้านลบในช่วงนั้น
+        for (const emotion of Object.keys(item.emotions)) {
+          if (negativeEmotions.includes(emotion)) {
+            itemNegativeCount += item.emotions[emotion];
+          }
+        }
+        
+        negativeCount += itemNegativeCount;
+        totalFaces += item.totalFaces;
+        windowItems.push({
+          time: item.time,
+          negativeCount: itemNegativeCount,
+          totalFaces: item.totalFaces
+        });
+      }
+      
+      // คำนวณเปอร์เซ็นต์อารมณ์ด้านลบ
+      const negativePercent = totalFaces > 0 ? (negativeCount / totalFaces) * 100 : 0;
+      
+      // หากมีเปอร์เซ็นต์อารมณ์ด้านลบมากกว่า 40% ให้บันทึกไว้
+      if (negativePercent >= 40 && windowItems.length > 0) {
+        negativeEmotionPeaks.push({
+          startTime: windowItems[0].time,
+          endTime: windowItems[windowItems.length - 1].time,
+          negativeCount,
+          totalFaces,
+          negativePercent: negativePercent.toFixed(1)
+        });
+      }
+    }
+    
+    // เรียงลำดับจุดพีคโดยเรียงตามเปอร์เซ็นต์อารมณ์ด้านลบจากมากไปน้อย
+    negativeEmotionPeaks.sort((a, b) => parseFloat(b.negativePercent) - parseFloat(a.negativePercent));
+    
+    // จำกัดเฉพาะ 3 จุดแรกที่มีค่าสูงสุด
+    negativeEmotionPeaks = negativeEmotionPeaks.slice(0, 3);
+    
+    return {
+      startTime,
+      endTime,
+      periods,
+      negativeEmotionPeaks,
+      emotionTimeline: sortedTimeline
+    };
+  };
+
+  // Function to generate insights for analysis
+  const getAnalysisInsights = (emotionData, emotionCounts, faceCountData) => {
+    if (!emotionData || !emotionCounts || !faceCountData) return [];
+    
+    const insights = [];
+    
+    // เพิ่มข้อมูลเชิงลึกเกี่ยวกับจำนวนนักเรียน
+    if (faceCountData.totalFaces > 0) {
+      if (faceCountData.maxFaces - faceCountData.minFaces > 5) {
+        insights.push(`มีความแตกต่างของจำนวนนักเรียนในการเก็บข้อมูลนี้ค่อนข้างมาก (${faceCountData.minFaces} - ${faceCountData.maxFaces} คน) อาจมีนักเรียนเข้า-ออกระหว่างคาบ`);
+      }
+    }
+    
+    // เพิ่มข้อมูลเชิงลึกเกี่ยวกับอารมณ์
+    const totalEmotions = Object.values(emotionCounts).reduce((sum, count) => sum + count, 0);
+    
+    // วิเคราะห์อารมณ์เชิงบวก-ลบ
+    const positiveEmotions = (emotionCounts.happy || 0) + (emotionCounts.surprise || 0);
+    const negativeEmotions = (emotionCounts.sad || 0) + (emotionCounts.angry || 0) + 
+                           (emotionCounts.fear || 0) + (emotionCounts.disgust || 0);
+    const neutralEmotions = emotionCounts.neutral || 0;
+    
+    const positivePercent = totalEmotions > 0 ? (positiveEmotions / totalEmotions) * 100 : 0;
+    const negativePercent = totalEmotions > 0 ? (negativeEmotions / totalEmotions) * 100 : 0;
+    const neutralPercent = totalEmotions > 0 ? (neutralEmotions / totalEmotions) * 100 : 0;
+    
+    if (positivePercent > 60) {
+      insights.push(`บรรยากาศในชั้นเรียนเป็นไปในทางบวก (${positivePercent.toFixed(1)}% เป็นอารมณ์เชิงบวก) แสดงว่านักเรียนมีความสุขและสนใจในการเรียน`);
+    } else if (negativePercent > 40) {
+      insights.push(`บรรยากาศในชั้นเรียนมีอารมณ์เชิงลบค่อนข้างสูง (${negativePercent.toFixed(1)}% เป็นอารมณ์เชิงลบ) อาจต้องปรับเทคนิคการสอนหรือเนื้อหาให้น่าสนใจมากขึ้น`);
+    } else if (neutralPercent > 50) {
+      insights.push(`นักเรียนส่วนใหญ่มีอารมณ์เป็นกลาง (${neutralPercent.toFixed(1)}%) อาจต้องเพิ่มกิจกรรมที่น่าสนใจเพื่อกระตุ้นการมีส่วนร่วม`);
+    }
+    
+    return insights;
+  };
+
   // Function to toggle comparison type
   const toggleComparisonType = (type) => {
     setComparisonType(type);
@@ -95,8 +286,6 @@ export default function CompareCourses() {
         fetchCourseTimes(course1, setCourse1Times);
       } else if (type === "monthly") {
         fetchCourseMonths(course1, setCourse1Months);
-      } else if (type === "yearly") {
-        fetchCourseYears(course1, setCourse1Years);
       }
     }
     
@@ -105,8 +294,6 @@ export default function CompareCourses() {
         fetchCourseTimes(course2, setCourse2Times);
       } else if (type === "monthly") {
         fetchCourseMonths(course2, setCourse2Months);
-      } else if (type === "yearly") {
-        fetchCourseYears(course2, setCourse2Years);
       }
     }
   };
@@ -117,14 +304,30 @@ export default function CompareCourses() {
     setSelectedTime2('');
     setSelectedMonth1('');
     setSelectedMonth2('');
-    setSelectedYear1('');
-    setSelectedYear2('');
     
     // Reset data
     setCourse1Data(null);
     setCourse2Data(null);
     setComparisonData(null);
     setError(null);
+    
+    // Reset enhanced analysis data
+    setFaceCountData({
+      course1: { totalFaces: 0, maxFaces: 0, minFaces: 0 },
+      course2: { totalFaces: 0, maxFaces: 0, minFaces: 0 }
+    });
+    setPeriodAnalysis({
+      course1: null,
+      course2: null
+    });
+    setEmotionTimelines({
+      course1: [],
+      course2: []
+    });
+    setAnalysisInsights({
+      course1: [],
+      course2: []
+    });
   };
 
   // DAILY COMPARISON FUNCTIONS
@@ -191,7 +394,7 @@ export default function CompareCourses() {
     }
   };
 
-  const fetchCourseEmotionData = async (courseId, dateTime, setCourseDataFunction) => {
+  const fetchCourseEmotionData = async (courseId, dateTime, setCourseDataFunction, courseKey) => {
     setIsLoading(true);
     setError(null);
     
@@ -221,10 +424,15 @@ export default function CompareCourses() {
       const targetDateStr = `${selectedDate.getFullYear()}-${(selectedDate.getMonth() + 1).toString().padStart(2, '0')}-${selectedDate.getDate().toString().padStart(2, '0')}`;
       console.log(`Filtering for date: ${targetDateStr}`);
       
+      const startOfDay = new Date(dateTime + 'T00:00:00');
+      const endOfDay = new Date(dateTime + 'T23:59:59');
+      
       const { data, error } = await supabase
         .from('emotion_detection')
         .select('*')
-        .eq('courses_id', courseIdInt);
+        .eq('courses_id', courseIdInt)
+        .gte('detection_time', startOfDay.toISOString())
+        .lt('detection_time', endOfDay.toISOString());
         
       if (error) {
         console.error(`Error fetching ALL emotion data for course ${courseIdInt}:`, error);
@@ -241,57 +449,74 @@ export default function CompareCourses() {
         return;
       }
       
-      // กรองข้อมูลตามวันที่เอง
-      const filteredData = data.filter(item => {
-        const itemDate = new Date(item.detection_time);
-        const itemDateStr = `${itemDate.getFullYear()}-${(itemDate.getMonth() + 1).toString().padStart(2, '0')}-${itemDate.getDate().toString().padStart(2, '0')}`;
-        return itemDateStr === targetDateStr;
+      // Process period analysis
+      const periodResult = analyzePeriods(data, startOfDay.toISOString(), endOfDay.toISOString());
+      setPeriodAnalysis(prev => ({ ...prev, [courseKey]: periodResult }));
+      
+      // Calculate face count data
+      let totalFaces = 0;
+      let faceCounts = [];
+      data.forEach(item => {
+        if (item.num_faces !== null && item.num_faces !== undefined) {
+          faceCounts.push(item.num_faces);
+          totalFaces += item.num_faces;
+        }
       });
       
-      console.log(`After manual filtering, found ${filteredData.length} records`);
+      const maxFaces = faceCounts.length > 0 ? Math.max(...faceCounts) : 0;
+      const minFaces = faceCounts.length > 0 ? Math.min(...faceCounts) : 0;
       
-      if (filteredData.length === 0) {
-        setError(`ไม่พบข้อมูลอารมณ์สำหรับวันที่ ${selectedDate.getDate()}/${selectedDate.getMonth() + 1}/${selectedDate.getFullYear()} ในรายวิชา ${courseId}`);
-        setIsLoading(false);
-        return;
-      }
+      setFaceCountData(prev => ({
+        ...prev,
+        [courseKey]: {
+          totalFaces,
+          maxFaces,
+          minFaces
+        }
+      }));
 
-      // จัดกลุ่มอารมณ์ในรูปแบบที่ถูกต้อง
-      const emotionCounts = {
-        happy: 0,
-        sad: 0,
-        angry: 0,
-        fear: 0,
-        surprise: 0,
-        disgust: 0,
-        neutral: 0
+      // Calculate emotion counts for analysis insights
+      const emotions = {
+        happy: 0, sad: 0, angry: 0, fear: 0, surprise: 0, neutral: 0, disgust: 0
       };
-
-      filteredData.forEach(record => {
+      
+      data.forEach(record => {
         const emotion = record.emotion ? record.emotion.toLowerCase() : '';
         
-        if (emotion === 'happiness') emotionCounts.happy++;
-        else if (emotion === 'sadness') emotionCounts.sad++;
-        else if (emotion === 'anger') emotionCounts.angry++;
-        else if (emotion === 'fear') emotionCounts.fear++;
-        else if (emotion === 'surprise') emotionCounts.surprise++;
-        else if (emotion === 'disgust') emotionCounts.disgust++;
-        else if (emotion === 'neutral') emotionCounts.neutral++;
-        else if (emotion === 'happy') emotionCounts.happy++;
-        else if (emotion === 'sad') emotionCounts.sad++;
+        if (emotion === 'happiness') emotions.happy++;
+        else if (emotion === 'sadness') emotions.sad++;
+        else if (emotion === 'anger') emotions.angry++;
+        else if (emotion === 'fear') emotions.fear++;
+        else if (emotion === 'surprise') emotions.surprise++;
+        else if (emotion === 'disgust') emotions.disgust++;
+        else if (emotion === 'neutral') emotions.neutral++;
+        else if (emotion === 'happy') emotions.happy++;
+        else if (emotion === 'sad') emotions.sad++;
       });
+      
+      // Generate insights
+      const insights = getAnalysisInsights(
+        emotions, // emotionPercentages (we'll calculate in the function)
+        emotions, // emotionCounts
+        { totalFaces, maxFaces, minFaces } // faceCountData
+      );
+      
+      setAnalysisInsights(prev => ({
+        ...prev,
+        [courseKey]: insights
+      }));
 
       // Get course details from courses array
       const courseDetails = courses.find(course => parseInt(course.courses_id, 10) === courseIdInt);
       
-      console.log(`Successfully processed emotion data:`, emotionCounts);
+      console.log(`Successfully processed emotion data:`, emotions);
       setCourseDataFunction({
-        ...emotionCounts,
+        ...emotions,
         courseName: courseDetails ? courseDetails.namecourses : `วิชา ${courseId}`,
         courseId: courseId,
         selectedDate: selectedDate.toISOString(),
         selectedType: 'day',
-        totalDetections: filteredData.length
+        totalDetections: data.length
       });
       
       setIsLoading(false);
@@ -359,7 +584,7 @@ export default function CompareCourses() {
     }
   };
 
-  const fetchCourseEmotionDataByMonth = async (courseId, yearMonth, setCourseDataFunction) => {
+  const fetchCourseEmotionDataByMonth = async (courseId, yearMonth, setCourseDataFunction, courseKey) => {
     setIsLoading(true);
     setError(null);
     
@@ -386,12 +611,16 @@ export default function CompareCourses() {
       
       console.log(`Fetching data for ${yearMonth} to ${nextMonth}`);
       
+      const startOfMonth = new Date(`${yearMonth}-01T00:00:00`);
+      const endOfMonth = new Date(`${nextMonth}-01T00:00:00`);
+      endOfMonth.setMilliseconds(endOfMonth.getMilliseconds() - 1);
+      
       const { data, error } = await supabase
         .from('emotion_detection')
         .select('*')
         .eq('courses_id', courseIdInt)
-        .gte('detection_time', `${yearMonth}-01T00:00:00`)
-        .lt('detection_time', `${nextMonth}-01T00:00:00`);
+        .gte('detection_time', startOfMonth.toISOString())
+        .lt('detection_time', endOfMonth.toISOString());
         
       if (error) {
         console.error(`Error fetching emotion data by month for course ${courseIdInt}:`, error);
@@ -405,6 +634,32 @@ export default function CompareCourses() {
         setIsLoading(false);
         return;
       }
+
+      // Process period analysis
+      const periodResult = analyzePeriods(data, startOfMonth.toISOString(), endOfMonth.toISOString());
+      setPeriodAnalysis(prev => ({ ...prev, [courseKey]: periodResult }));
+      
+      // Calculate face count data and other analysis
+      let totalFaces = 0;
+      let faceCounts = [];
+      data.forEach(item => {
+        if (item.num_faces !== null && item.num_faces !== undefined) {
+          faceCounts.push(item.num_faces);
+          totalFaces += item.num_faces;
+        }
+      });
+      
+      const maxFaces = faceCounts.length > 0 ? Math.max(...faceCounts) : 0;
+      const minFaces = faceCounts.length > 0 ? Math.min(...faceCounts) : 0;
+      
+      setFaceCountData(prev => ({
+        ...prev,
+        [courseKey]: {
+          totalFaces,
+          maxFaces,
+          minFaces
+        }
+      }));
 
       // Group emotions
       const emotionCounts = {
@@ -430,6 +685,18 @@ export default function CompareCourses() {
         else if (emotion === 'happy') emotionCounts.happy++;
         else if (emotion === 'sad') emotionCounts.sad++;
       });
+
+      // Generate insights
+      const insights = getAnalysisInsights(
+        emotionCounts,
+        emotionCounts,
+        { totalFaces, maxFaces, minFaces }
+      );
+      
+      setAnalysisInsights(prev => ({
+        ...prev,
+        [courseKey]: insights
+      }));
 
       // Get course details
       const courseDetails = courses.find(course => parseInt(course.courses_id, 10) === courseIdInt);
@@ -451,150 +718,7 @@ export default function CompareCourses() {
     }
   };
 
-  // YEARLY COMPARISON FUNCTIONS
-  const fetchCourseYears = async (courseId, setCourseYearsFunction) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const courseIdInt = parseInt(courseId, 10);
-      
-      if (isNaN(courseIdInt)) {
-        setError(`รหัสวิชาไม่ถูกต้อง: ${courseId}`);
-        setIsLoading(false);
-        return;
-      }
-      
-      console.log(`Fetching years for course ID: ${courseIdInt}`);
-      
-      const { data, error } = await supabase
-        .from('emotion_detection')
-        .select('detection_time')
-        .eq('courses_id', courseIdInt);
 
-      if (error) {
-        console.error(`Error fetching years for course ${courseIdInt}:`, error);
-        setError(`ไม่สามารถดึงข้อมูลปีสำหรับรายวิชา ${courseId} ได้`);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (!data || data.length === 0) {
-        console.log(`No year data found for course ${courseIdInt}`);
-        setCourseYearsFunction([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Extract year format (YYYY) from timestamps
-      const yearsMap = {};
-      
-      data.forEach(item => {
-        const date = new Date(item.detection_time);
-        const year = `${date.getFullYear()}`;
-        yearsMap[year] = true;
-      });
-      
-      // Convert to array and sort
-      const uniqueYears = Object.keys(yearsMap).sort().reverse();
-      
-      console.log(`Found ${uniqueYears.length} unique years for course ${courseIdInt}`);
-      setCourseYearsFunction(uniqueYears);
-      setIsLoading(false);
-    } catch (error) {
-      console.error(`Exception when fetching years for course ${courseId}:`, error);
-      setError(`เกิดข้อผิดพลาดขณะดึงข้อมูลปี: ${error.message || 'Unknown error'}`);
-      setIsLoading(false);
-    }
-  };
-
-  const fetchCourseEmotionDataByYear = async (courseId, year, setCourseDataFunction) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      if (!courseId || !year) {
-        setError('กรุณาเลือกรายวิชาและปีให้ครบถ้วน');
-        setIsLoading(false);
-        return;
-      }
-      
-      const courseIdInt = parseInt(courseId, 10);
-      
-      if (isNaN(courseIdInt)) {
-        setError(`รหัสวิชาไม่ถูกต้อง: ${courseId}`);
-        setIsLoading(false);
-        return;
-      }
-      
-      const nextYear = `${parseInt(year) + 1}`;
-      
-      console.log(`Fetching data for year ${year} to ${nextYear}`);
-      
-      const { data, error } = await supabase
-        .from('emotion_detection')
-        .select('*')
-        .eq('courses_id', courseIdInt)
-        .gte('detection_time', `${year}-01-01T00:00:00`)
-        .lt('detection_time', `${nextYear}-01-01T00:00:00`);
-        
-      if (error) {
-        console.error(`Error fetching emotion data by year for course ${courseIdInt}:`, error);
-        setError(`ไม่สามารถดึงข้อมูลอารมณ์สำหรับรายวิชา ${courseId} ได้: ${error.message}`);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (!data || data.length === 0) {
-        setError(`ไม่พบข้อมูลอารมณ์สำหรับปี ${formatThaiYear(year)} ในรายวิชา ${courseId}`);
-        setIsLoading(false);
-        return;
-      }
-
-      // Group emotions
-      const emotionCounts = {
-        happy: 0,
-        sad: 0,
-        angry: 0,
-        fear: 0,
-        surprise: 0,
-        disgust: 0,
-        neutral: 0
-      };
-
-      data.forEach(record => {
-        const emotion = record.emotion ? record.emotion.toLowerCase() : '';
-        
-        if (emotion === 'happiness') emotionCounts.happy++;
-        else if (emotion === 'sadness') emotionCounts.sad++;
-        else if (emotion === 'anger') emotionCounts.angry++;
-        else if (emotion === 'fear') emotionCounts.fear++;
-        else if (emotion === 'surprise') emotionCounts.surprise++;
-        else if (emotion === 'disgust') emotionCounts.disgust++;
-        else if (emotion === 'neutral') emotionCounts.neutral++;
-        else if (emotion === 'happy') emotionCounts.happy++;
-        else if (emotion === 'sad') emotionCounts.sad++;
-      });
-
-      // Get course details
-      const courseDetails = courses.find(course => parseInt(course.courses_id, 10) === courseIdInt);
-      
-      setCourseDataFunction({
-        ...emotionCounts,
-        courseName: courseDetails ? courseDetails.namecourses : `วิชา ${courseId}`,
-        courseId: courseId,
-        selectedDate: year,
-        selectedType: 'year',
-        totalDetections: data.length
-      });
-      
-      setIsLoading(false);
-    } catch (error) {
-      console.error(`Exception when fetching emotion data by year for course ${courseId}:`, error);
-      setError(`เกิดข้อผิดพลาดขณะดึงข้อมูลอารมณ์: ${error.message || 'Unknown error'}`);
-      setIsLoading(false);
-    }
-  };
 
   // Helper functions to format dates in Thai
   const formatDateTime = (isoString) => {
@@ -645,13 +769,10 @@ export default function CompareCourses() {
         fetchCourseTimes(courseId, setCourse1Times);
       } else if (comparisonType === "monthly") {
         fetchCourseMonths(courseId, setCourse1Months);
-      } else if (comparisonType === "yearly") {
-        fetchCourseYears(courseId, setCourse1Years);
       }
     } else {
       setCourse1Times([]);
       setCourse1Months([]);
-      setCourse1Years([]);
     }
   };
   
@@ -672,13 +793,10 @@ export default function CompareCourses() {
         fetchCourseTimes(courseId, setCourse2Times);
       } else if (comparisonType === "monthly") {
         fetchCourseMonths(courseId, setCourse2Months);
-      } else if (comparisonType === "yearly") {
-        fetchCourseYears(courseId, setCourse2Years);
       }
     } else {
       setCourse2Times([]);
       setCourse2Months([]);
-      setCourse2Years([]);
     }
   };
 
@@ -689,7 +807,7 @@ export default function CompareCourses() {
     setError(null);
     
     if (time) {
-      fetchCourseEmotionData(course1, time, setCourse1Data);
+      fetchCourseEmotionData(course1, time, setCourse1Data, 'course1');
     } else {
       setCourse1Data(null);
     }
@@ -702,7 +820,7 @@ export default function CompareCourses() {
     setError(null);
     
     if (time) {
-      fetchCourseEmotionData(course2, time, setCourse2Data);
+      fetchCourseEmotionData(course2, time, setCourse2Data, 'course2');
     } else {
       setCourse2Data(null);
     }
@@ -715,7 +833,7 @@ export default function CompareCourses() {
     setError(null);
     
     if (month) {
-      fetchCourseEmotionDataByMonth(course1, month, setCourse1Data);
+      fetchCourseEmotionDataByMonth(course1, month, setCourse1Data, 'course1');
     } else {
       setCourse1Data(null);
     }
@@ -728,37 +846,13 @@ export default function CompareCourses() {
     setError(null);
     
     if (month) {
-      fetchCourseEmotionDataByMonth(course2, month, setCourse2Data);
+      fetchCourseEmotionDataByMonth(course2, month, setCourse2Data, 'course2');
     } else {
       setCourse2Data(null);
     }
   };
 
-  const handleYear1Change = (e) => {
-    const year = e.target.value;
-    setSelectedYear1(year);
-    setComparisonData(null);
-    setError(null);
-    
-    if (year) {
-      fetchCourseEmotionDataByYear(course1, year, setCourse1Data);
-    } else {
-      setCourse1Data(null);
-    }
-  };
 
-  const handleYear2Change = (e) => {
-    const year = e.target.value;
-    setSelectedYear2(year);
-    setComparisonData(null);
-    setError(null);
-    
-    if (year) {
-      fetchCourseEmotionDataByYear(course2, year, setCourse2Data);
-    } else {
-      setCourse2Data(null);
-    }
-  };
 
   const prepareComparisonData = () => {
     if (!course1Data || !course2Data) return null;
@@ -860,8 +954,20 @@ export default function CompareCourses() {
       <div className="flex-1 p-8 overflow-y-auto">
         <h2 className="text-2xl font-bold mb-4">เปรียบเทียบผลวิเคราะห์ระหว่างรายวิชา</h2>
         
+        {/* คำอธิบายประโยชน์ของผลวิเคราะห์ */}
+        <div className="bg-blue-50 p-4 my-4 rounded-lg shadow border border-blue-200">
+          <h3 className="text-xl font-semibold text-blue-800 mb-2">ประโยชน์ของการเปรียบเทียบผลการวิเคราะห์อารมณ์ระหว่างรายวิชา</h3>
+          <ul className="list-disc pl-6 space-y-2">
+            <li>เปรียบเทียบอารมณ์ของผู้เรียนระหว่างรายวิชาที่แตกต่างกัน เพื่อวิเคราะห์ความชอบและความสนใจของนักเรียน</li>
+            <li>ค้นหาความแตกต่างระหว่างรายวิชาที่มีอารมณ์เชิงบวกสูงและรายวิชาที่มีอารมณ์เชิงลบสูง</li>
+            <li>ประเมินประสิทธิภาพของเทคนิคการสอนที่แตกต่างกันระหว่างรายวิชา</li>
+            <li>ช่วยในการวางแผนและออกแบบหลักสูตรให้เหมาะสมกับธรรมชาติของแต่ละรายวิชา</li>
+            <li>สร้างเกณฑ์เปรียบเทียบ (Benchmark) เพื่อพัฒนาการเรียนการสอนให้ดียิ่งขึ้น</li>
+          </ul>
+        </div>
+        
         {/* Comparison Type Selection */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <button
             onClick={() => toggleComparisonType("daily")}
             className={`py-2 px-4 rounded-lg text-center ${
@@ -881,16 +987,6 @@ export default function CompareCourses() {
             }`}
           >
             เปรียบเทียบรายเดือน
-          </button>
-          <button
-            onClick={() => toggleComparisonType("yearly")}
-            className={`py-2 px-4 rounded-lg text-center ${
-              comparisonType === "yearly" 
-                ? "bg-sky-600 text-white" 
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-          >
-            เปรียบเทียบรายปี
           </button>
         </div>
         
@@ -983,33 +1079,7 @@ export default function CompareCourses() {
               </div>
             )}
             
-            {/* Yearly selection */}
-            {comparisonType === "yearly" && course1 && course1Years.length === 0 && !isLoading && (
-              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
-                ไม่พบข้อมูลปีสำหรับรายวิชานี้
-              </div>
-            )}
-            
-            {comparisonType === "yearly" && course1Years.length > 0 && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  เลือกปี
-                </label>
-                <select
-                  className="w-full p-2 border border-gray-300 rounded-lg"
-                  value={selectedYear1}
-                  onChange={handleYear1Change}
-                  disabled={isLoading}
-                >
-                  <option value="">-- เลือกปี --</option>
-                  {course1Years.map((year, index) => (
-                    <option key={`y1-${index}`} value={year}>
-                      {formatThaiYear(year)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+
             
             {course1Data && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
@@ -1108,33 +1178,7 @@ export default function CompareCourses() {
               </div>
             )}
             
-            {/* Yearly selection */}
-            {comparisonType === "yearly" && course2 && course2Years.length === 0 && !isLoading && (
-              <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md mb-4">
-                ไม่พบข้อมูลปีสำหรับรายวิชานี้
-              </div>
-            )}
-            
-            {comparisonType === "yearly" && course2Years.length > 0 && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  เลือกปี
-                </label>
-                <select
-                  className="w-full p-2 border border-gray-300 rounded-lg"
-                  value={selectedYear2}
-                  onChange={handleYear2Change}
-                  disabled={isLoading}
-                >
-                  <option value="">-- เลือกปี --</option>
-                  {course2Years.map((year, index) => (
-                    <option key={`y2-${index}`} value={year}>
-                      {formatThaiYear(year)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+
             
             {course2Data && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
@@ -1181,6 +1225,257 @@ export default function CompareCourses() {
         {comparisonData && (
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-xl font-semibold mb-4">ผลการเปรียบเทียบอารมณ์</h3>
+
+            {/* ส่วนแสดงข้อมูลจำนวนใบหน้า */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <h4 className="text-blue-800 font-semibold mb-2">{course1Data.courseName}</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center bg-white p-2 rounded-lg shadow">
+                    <h5 className="text-blue-600 font-semibold">จำนวนการตรวจจับอารมณ์ทั้งหมด</h5>
+                    <p className="text-2xl font-bold">{faceCountData.course1?.totalFaces || 0} ครั้ง</p>
+                  </div>
+                  <div className="text-center bg-white p-2 rounded-lg shadow">
+                    <h5 className="text-blue-600 font-semibold">จำนวนใบหน้าสูงสุด</h5>
+                    <p className="text-2xl font-bold">{faceCountData.course1?.maxFaces || 0} ใบหน้า</p>
+                  </div>
+                  <div className="text-center bg-white p-2 rounded-lg shadow">
+                    <h5 className="text-blue-600 font-semibold">จำนวนใบหน้าต่ำสุด</h5>
+                    <p className="text-2xl font-bold">{faceCountData.course1?.minFaces || 0} ใบหน้า</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <h4 className="text-blue-800 font-semibold mb-2">{course2Data.courseName}</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center bg-white p-2 rounded-lg shadow">
+                    <h5 className="text-blue-600 font-semibold">จำนวนการตรวจจับอารมณ์ทั้งหมด</h5>
+                    <p className="text-2xl font-bold">{faceCountData.course2?.totalFaces || 0} ครั้ง</p>
+                  </div>
+                  <div className="text-center bg-white p-2 rounded-lg shadow">
+                    <h5 className="text-blue-600 font-semibold">จำนวนใบหน้าสูงสุด</h5>
+                    <p className="text-2xl font-bold">{faceCountData.course2?.maxFaces || 0} ใบหน้า</p>
+                  </div>
+                  <div className="text-center bg-white p-2 rounded-lg shadow">
+                    <h5 className="text-blue-600 font-semibold">จำนวนใบหน้าต่ำสุด</h5>
+                    <p className="text-2xl font-bold">{faceCountData.course2?.minFaces || 0} ใบหน้า</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ส่วนอธิบายการคำนวณอารมณ์เพื่อความเข้าใจของผู้ใช้ */}
+            <div className="bg-violet-50 p-3 rounded-lg mb-4 border border-violet-200">
+              <h4 className="text-lg font-semibold text-violet-800 mb-2 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                วิธีการคำนวณกลุ่มอารมณ์
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                <div className="bg-white p-3 rounded-lg shadow border-l-4 border-yellow-400">
+                  <p className="font-medium text-yellow-600 mb-1">อารมณ์เชิงบวก (Positive)</p>
+                  <ul className="list-disc ml-5 text-sm text-gray-700">
+                    <li>ความสุข (Happy/Happiness)</li>
+                    <li>ความประหลาดใจ (Surprised/Surprise)</li>
+                  </ul>
+                  <p className="text-xs text-gray-500 mt-2 italic">เปอร์เซ็นต์อารมณ์เชิงบวกมากกว่า 60% = บรรยากาศเชิงบวก</p>
+                </div>
+                <div className="bg-white p-3 rounded-lg shadow border-l-4 border-red-400">
+                  <p className="font-medium text-red-600 mb-1">อารมณ์เชิงลบ (Negative)</p>
+                  <ul className="list-disc ml-5 text-sm text-gray-700">
+                    <li>ความเศร้า (Sad/Sadness)</li>
+                    <li>ความโกรธ (Angry/Anger)</li>
+                    <li>ความกลัว (Fearful/Fear)</li>
+                    <li>ความรังเกียจ (Disgusted/Disgust)</li>
+                  </ul>
+                  <p className="text-xs text-gray-500 mt-2 italic">เปอร์เซ็นต์อารมณ์เชิงลบมากกว่า 40% = ควรปรับวิธีการสอน</p>
+                </div>
+                <div className="bg-white p-3 rounded-lg shadow border-l-4 border-gray-400">
+                  <p className="font-medium text-gray-600 mb-1">อารมณ์เป็นกลาง (Neutral)</p>
+                  <ul className="list-disc ml-5 text-sm text-gray-700">
+                    <li>เป็นกลาง (Neutral)</li>
+                  </ul>
+                  <p className="text-xs text-gray-500 mt-2 italic">เปอร์เซ็นต์อารมณ์เป็นกลางมากกว่า 50% = ควรเพิ่มกิจกรรมที่น่าสนใจ</p>
+                </div>
+              </div>
+            </div>
+
+            {/* แสดงจุดพีคของอารมณ์ด้านลบ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {periodAnalysis.course1 && periodAnalysis.course1.negativeEmotionPeaks && periodAnalysis.course1.negativeEmotionPeaks.length > 0 && (
+                <div className="bg-amber-50 p-3 rounded-lg">
+                  <h4 className="text-amber-800 font-semibold text-lg mb-2">การวิเคราะห์ช่วงเวลาที่มีอารมณ์ด้านลบ - {course1Data.courseName}</h4>
+                  <div className="space-y-2">
+                    {periodAnalysis.course1.negativeEmotionPeaks.map((peak, peakIndex) => {
+                      const startTime = new Date(peak.startTime);
+                      const endTime = new Date(peak.endTime);
+                      
+                      // Format display based on comparison type
+                      let timeDisplay;
+                      if (comparisonType === "monthly") {
+                        const day = startTime.getDate();
+                        const month = startTime.toLocaleString('th-TH', { month: 'long' });
+                        const year = startTime.getFullYear() + 543; // Convert to Buddhist era
+                        timeDisplay = `วันที่ ${day} ${month} พ.ศ. ${year} เวลา ${startTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} ถึง ${endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+                      } else {
+                        timeDisplay = `${startTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} ถึง ${endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+                      }
+                      
+                      return (
+                        <div key={peakIndex} className="bg-white p-3 rounded-lg shadow border-l-4 border-amber-500">
+                          <div className="flex items-center gap-2 mb-1">
+                            <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <p className="font-medium text-amber-800">
+                              พบจุดที่มีอารมณ์ด้านลบสูง ({peak.negativePercent}%)
+                            </p>
+                          </div>
+                          <div className="ml-7">
+                            <p className="text-gray-700">
+                              <span className="font-medium">ช่วงเวลา:</span> {timeDisplay}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {periodAnalysis.course2 && periodAnalysis.course2.negativeEmotionPeaks && periodAnalysis.course2.negativeEmotionPeaks.length > 0 && (
+                <div className="bg-amber-50 p-3 rounded-lg">
+                  <h4 className="text-amber-800 font-semibold text-lg mb-2">การวิเคราะห์ช่วงเวลาที่มีอารมณ์ด้านลบ - {course2Data.courseName}</h4>
+                  <div className="space-y-2">
+                    {periodAnalysis.course2.negativeEmotionPeaks.map((peak, peakIndex) => {
+                      const startTime = new Date(peak.startTime);
+                      const endTime = new Date(peak.endTime);
+                      
+                      // Format display based on comparison type
+                      let timeDisplay;
+                      if (comparisonType === "monthly") {
+                        const day = startTime.getDate();
+                        const month = startTime.toLocaleString('th-TH', { month: 'long' });
+                        const year = startTime.getFullYear() + 543; // Convert to Buddhist era
+                        timeDisplay = `วันที่ ${day} ${month} พ.ศ. ${year} เวลา ${startTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} ถึง ${endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+                      } else {
+                        timeDisplay = `${startTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} ถึง ${endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+                      }
+                      
+                      return (
+                        <div key={peakIndex} className="bg-white p-3 rounded-lg shadow border-l-4 border-amber-500">
+                          <div className="flex items-center gap-2 mb-1">
+                            <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <p className="font-medium text-amber-800">
+                              พบจุดที่มีอารมณ์ด้านลบสูง ({peak.negativePercent}%)
+                            </p>
+                          </div>
+                          <div className="ml-7">
+                            <p className="text-gray-700">
+                              <span className="font-medium">ช่วงเวลา:</span> {timeDisplay}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+
+
+            {/* แสดงกราฟเส้นไทม์ไลน์อารมณ์ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {periodAnalysis.course1 && periodAnalysis.course1.emotionTimeline && periodAnalysis.course1.emotionTimeline.length > 0 && (
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <h4 className="text-gray-800 font-semibold text-lg mb-2">ไทม์ไลน์อารมณ์ - {course1Data.courseName}</h4>
+                  <div style={{ height: "200px" }}>
+                    <LineChart
+                      width={500}
+                      height={200}
+                      data={periodAnalysis.course1.emotionTimeline.map(item => {
+                        const time = new Date(item.time);
+                        return {
+                          time: comparisonType === "monthly" 
+                            ? `วันที่ ${time.getDate()}` 
+                            : time.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                          happy: (item.emotions.happiness || 0) + (item.emotions.happy || 0),
+                          sad: (item.emotions.sadness || 0) + (item.emotions.sad || 0),
+                          angry: (item.emotions.anger || 0) + (item.emotions.angry || 0),
+                          fear: (item.emotions.fear || 0) + (item.emotions.fearful || 0),
+                          surprise: (item.emotions.surprise || 0) + (item.emotions.surprised || 0),
+                          neutral: (item.emotions.neutral || 0),
+                          disgust: (item.emotions.disgust || 0) + (item.emotions.disgusted || 0)
+                        };
+                      })}
+                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="happy" stroke="#FFD700" />
+                      <Line type="monotone" dataKey="sad" stroke="#4682B4" />
+                      <Line type="monotone" dataKey="angry" stroke="#FF6347" />
+                      <Line type="monotone" dataKey="fear" stroke="#9932CC" />
+                      <Line type="monotone" dataKey="surprise" stroke="#00CED1" />
+                      <Line type="monotone" dataKey="neutral" stroke="#A9A9A9" />
+                      <Line type="monotone" dataKey="disgust" stroke="#8B4513" />
+                    </LineChart>
+                  </div>
+                </div>
+              )}
+
+              {periodAnalysis.course2 && periodAnalysis.course2.emotionTimeline && periodAnalysis.course2.emotionTimeline.length > 0 && (
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <h4 className="text-gray-800 font-semibold text-lg mb-2">ไทม์ไลน์อารมณ์ - {course2Data.courseName}</h4>
+                  <div style={{ height: "200px" }}>
+                    <LineChart
+                      width={500}
+                      height={200}
+                      data={periodAnalysis.course2.emotionTimeline.map(item => {
+                        const time = new Date(item.time);
+                        return {
+                          time: comparisonType === "monthly" 
+                            ? `วันที่ ${time.getDate()}` 
+                            : time.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                          happy: (item.emotions.happiness || 0) + (item.emotions.happy || 0),
+                          sad: (item.emotions.sadness || 0) + (item.emotions.sad || 0),
+                          angry: (item.emotions.anger || 0) + (item.emotions.angry || 0),
+                          fear: (item.emotions.fear || 0) + (item.emotions.fearful || 0),
+                          surprise: (item.emotions.surprise || 0) + (item.emotions.surprised || 0),
+                          neutral: (item.emotions.neutral || 0),
+                          disgust: (item.emotions.disgust || 0) + (item.emotions.disgusted || 0)
+                        };
+                      })}
+                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="happy" stroke="#FFD700" />
+                      <Line type="monotone" dataKey="sad" stroke="#4682B4" />
+                      <Line type="monotone" dataKey="angry" stroke="#FF6347" />
+                      <Line type="monotone" dataKey="fear" stroke="#9932CC" />
+                      <Line type="monotone" dataKey="surprise" stroke="#00CED1" />
+                      <Line type="monotone" dataKey="neutral" stroke="#A9A9A9" />
+                      <Line type="monotone" dataKey="disgust" stroke="#8B4513" />
+                    </LineChart>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -1244,6 +1539,31 @@ export default function CompareCourses() {
                   <p>เป็นกลาง: {course2Data.neutral} ({((course2Data.neutral / course2Data.totalDetections) * 100).toFixed(1)}%)</p>
                 </div>
               </div>
+            </div>
+
+            {/* เพิ่มส่วนการวิเคราะห์และข้อเสนอแนะ */}
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {analysisInsights.course1 && analysisInsights.course1.length > 0 && (
+                <div className="bg-indigo-50 p-4 rounded-lg">
+                  <h4 className="text-xl font-semibold text-indigo-800 mb-2">การวิเคราะห์และข้อเสนอแนะ - {course1Data.courseName}</h4>
+                  <ul className="list-disc pl-6 space-y-2">
+                    {analysisInsights.course1.map((insight, insightIndex) => (
+                      <li key={insightIndex} className="text-gray-800">{insight}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {analysisInsights.course2 && analysisInsights.course2.length > 0 && (
+                <div className="bg-indigo-50 p-4 rounded-lg">
+                  <h4 className="text-xl font-semibold text-indigo-800 mb-2">การวิเคราะห์และข้อเสนอแนะ - {course2Data.courseName}</h4>
+                  <ul className="list-disc pl-6 space-y-2">
+                    {analysisInsights.course2.map((insight, insightIndex) => (
+                      <li key={insightIndex} className="text-gray-800">{insight}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         )}
